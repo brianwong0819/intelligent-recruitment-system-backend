@@ -1,5 +1,24 @@
 package com.event.recruitment.intelligent_recruitment_system.model;
 
+/**
+ * Enum representing language types
+ */
 public enum Language {
-    ENGLISH, CHINESE, MALAY, TAMIL, HINDI, CANTONESE, HOKKIEN, HAKKA, JAPANESE, KOREAN, THAI, VIETNAMESE, FRENCH, SPANISH, GERMAN, ARABIC, OTHER
+    ENGLISH,
+    CHINESE,
+    MALAY,
+    TAMIL,
+    HINDI,
+    CANTONESE,
+    HOKKIEN,
+    HAKKA,
+    JAPANESE,
+    KOREAN,
+    THAI,
+    VIETNAMESE,
+    FRENCH,
+    SPANISH,
+    GERMAN,
+    ARABIC,
+    OTHER
 }
