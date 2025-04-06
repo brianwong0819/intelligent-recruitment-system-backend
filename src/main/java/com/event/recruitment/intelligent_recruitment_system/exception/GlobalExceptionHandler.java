@@ -1,6 +1,6 @@
 package com.event.recruitment.intelligent_recruitment_system.exception;
 
-import com.event.recruitment.intelligent_recruitment_system.dto.Response;
+import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ControllerAdvice;
