@@ -36,7 +36,7 @@ public class RecruiterRegistrationRequest {
 
     private String companyDescription;
 
-    private String companyLocation;
-
+    private Long companyLocationId;
+    
     private String companyWebsite;
 }

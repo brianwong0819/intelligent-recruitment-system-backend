@@ -1,5 +1,6 @@
 package com.event.recruitment.intelligent_recruitment_system.dto.response.candidate;
 
+import com.event.recruitment.intelligent_recruitment_system.dto.response.location.LocationResponseDTO;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -22,7 +23,7 @@ public class CandidateResponseDTO {
     private String dateOfBirth;
     private String race;
     private String profilePictureUrl;
-    private String preferredLocation;
+    private LocationResponseDTO preferredLocation;
     private String availability;
     private String bio;
     private String[] languages;

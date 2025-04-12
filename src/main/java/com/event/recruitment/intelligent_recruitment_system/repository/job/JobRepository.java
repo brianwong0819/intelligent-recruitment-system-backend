@@ -3,12 +3,16 @@ package com.event.recruitment.intelligent_recruitment_system.repository.job;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.Jobs;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Projects;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobStatusType;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JobRepository extends JpaRepository<Jobs, Long> {
@@ -20,6 +24,11 @@ public interface JobRepository extends JpaRepository<Jobs, Long> {
 
     // Count total jobs by project ID
     Long countByProjectId(Long projectId);
+
+    Page<Jobs> findAll(Specification<Jobs> spec, Pageable pageable);
+
+    // New method to get open jobs
+    Page<Jobs> findByStatus(JobStatusType status, Pageable pageable);
 
     // Find jobs by specific status
     List<Jobs> findByStatus(JobStatusType status);
@@ -48,4 +57,10 @@ public interface JobRepository extends JpaRepository<Jobs, Long> {
     // Custom query to get job count by status for a project
     @Query("SELECT j.status, COUNT(j) FROM Jobs j WHERE j.project.id = :projectId GROUP BY j.status")
     List<Object[]> countJobsByStatusForProject(@Param("projectId") Long projectId);
+
+    @Query("SELECT DISTINCT j FROM Jobs j " +
+            "LEFT JOIN FETCH j.project p " +
+            "LEFT JOIN FETCH p.recruiter r " +
+            "WHERE j.id = :jobId")
+    Optional<Jobs> findByIdWithAllDetails(@Param("jobId") Long jobId);
 }

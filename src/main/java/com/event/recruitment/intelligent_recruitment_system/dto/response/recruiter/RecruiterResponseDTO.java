@@ -1,5 +1,6 @@
 package com.event.recruitment.intelligent_recruitment_system.dto.response.recruiter;
 
+import com.event.recruitment.intelligent_recruitment_system.dto.response.location.LocationResponseDTO;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.RecruiterType;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.VerificationStatus;
 import lombok.AllArgsConstructor;
@@ -21,7 +22,8 @@ public class RecruiterResponseDTO {
     private String companyName;
     private String companyLogoUrl;
     private String companyDescription;
-    private String companyLocation;
+    // Replace string location with LocationResponseDTO
+    private LocationResponseDTO companyLocation;
     private String companyWebsite;
     private VerificationStatus verificationStatus;
 }

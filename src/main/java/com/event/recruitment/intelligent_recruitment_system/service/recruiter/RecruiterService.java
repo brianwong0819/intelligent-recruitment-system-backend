@@ -3,6 +3,8 @@ package com.event.recruitment.intelligent_recruitment_system.service.recruiter;
 import com.event.recruitment.intelligent_recruitment_system.dto.request.auth.RecruiterRegistrationRequest;
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.recruiter.RecruiterResponseDTO;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;
+import com.event.recruitment.intelligent_recruitment_system.repository.location.LocationRepository;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Recruiters;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.RecruiterType;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.VerificationStatus;
@@ -29,6 +31,7 @@ import java.util.UUID;
 public class RecruiterService {
 
     private final RecruiterRepository recruiterRepository;
+    private final LocationRepository locationRepository;
     private final PasswordEncoder passwordEncoder;
     private final SecurityUtil securityUtil;
 
@@ -52,6 +55,16 @@ public class RecruiterService {
             return new Response<>(400, "Username is already taken.", null);
         }
 
+        // Get location from database if locationId is provided
+        Location location = null;
+        if (recruiterRequest.getCompanyLocationId() != null) {
+            Optional<Location> locationOptional = locationRepository.findById(recruiterRequest.getCompanyLocationId());
+            if (locationOptional.isEmpty()) {
+                return new Response<>(404, "Location with provided ID not found.", null);
+            }
+            location = locationOptional.get();
+        }
+
         // Create Recruiter entity
         Recruiters recruiter = Recruiters.builder()
                 .username(recruiterRequest.getUsername())
@@ -63,7 +76,7 @@ public class RecruiterService {
                         recruiterRequest.getRecruiterType() : RecruiterType.INDIVIDUAL)
                 .companyName(recruiterRequest.getCompanyName())
                 .companyDescription(recruiterRequest.getCompanyDescription())
-                .companyLocation(recruiterRequest.getCompanyLocation())
+                .companyLocation(location)  // Use Location entity instead of string
                 .companyWebsite(recruiterRequest.getCompanyWebsite())
                 .verificationStatus(VerificationStatus.PENDING)
                 .createdAt(LocalDateTime.now())
@@ -77,10 +90,9 @@ public class RecruiterService {
 
         return new Response<>(201, "Recruiter registered successfully", responseDTO);
     }
-
-    /**
-     * Upload or update company logo for the logged-in recruiter
-     */
+        /**
+         * Upload or update company logo for the logged-in recruiter
+         */
     @Transactional
     public Response<?> uploadOrUpdateCompanyLogo(MultipartFile file) {
         try {

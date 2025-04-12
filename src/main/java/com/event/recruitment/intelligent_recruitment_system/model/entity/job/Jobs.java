@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "jobs")
@@ -63,6 +64,12 @@ public class Jobs {
 
     @Column(name = "created_at")
     private LocalDateTime createdAt;
+
+    @OneToMany(mappedBy = "job", fetch = FetchType.LAZY)
+    private List<JobSchedule> jobSchedules;
+
+    @OneToMany(mappedBy = "job", fetch = FetchType.LAZY)
+    private List<JobLocation> jobLocations;
 
     @PrePersist
     protected void onCreate() {

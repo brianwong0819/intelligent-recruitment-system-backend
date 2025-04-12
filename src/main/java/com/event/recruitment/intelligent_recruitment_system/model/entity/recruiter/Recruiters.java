@@ -1,5 +1,6 @@
 package com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter;
 
+import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.AuthProvider;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.RecruiterType;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.VerificationStatus;
@@ -56,8 +57,9 @@ public class Recruiters {
     @Column(name = "company_description")
     private String companyDescription;
 
-    @Column(name = "company_location")
-    private String companyLocation;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "company_location_id")
+    private Location companyLocation;
 
     @Column(name = "company_website")
     private String companyWebsite;

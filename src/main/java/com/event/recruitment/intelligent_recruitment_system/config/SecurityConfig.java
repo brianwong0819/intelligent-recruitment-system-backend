@@ -44,10 +44,13 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/candidate/register",
                                 "/api/recruiter/register",
+                                "/api/locations/search",
+                                "/api/locations/getLocationById",
                                 "/api/auth/candidate/login",
                                 "/api/auth/recruiter/login",
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
+                                "/api/jobs/public/**",
                                 "/api/public/**",
                                 "/error"
                         ).permitAll()

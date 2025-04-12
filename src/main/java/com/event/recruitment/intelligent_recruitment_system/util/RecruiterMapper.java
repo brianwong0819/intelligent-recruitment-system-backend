@@ -1,11 +1,31 @@
+// src/main/java/com/event/recruitment/intelligent_recruitment_system/util/RecruiterMapper.java
 package com.event.recruitment.intelligent_recruitment_system.util;
 
+import com.event.recruitment.intelligent_recruitment_system.dto.response.location.LocationResponseDTO;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.recruiter.RecruiterResponseDTO;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Recruiters;
 
 public class RecruiterMapper {
 
     public static RecruiterResponseDTO toRecruiterResponseDTO(Recruiters recruiter) {
+        // Create LocationResponseDTO from Location entity if it exists
+        LocationResponseDTO locationDTO = null;
+        if (recruiter.getCompanyLocation() != null) {
+            locationDTO = LocationResponseDTO.builder()
+                    .id(recruiter.getCompanyLocation().getId())
+                    .name(recruiter.getCompanyLocation().getName())
+                    .address(recruiter.getCompanyLocation().getAddress())
+                    .city(recruiter.getCompanyLocation().getCity())
+                    .state(recruiter.getCompanyLocation().getState())
+                    .country(recruiter.getCompanyLocation().getCountry())
+                    .postalCode(recruiter.getCompanyLocation().getPostalCode())
+                    .latitude(recruiter.getCompanyLocation().getLatitude())
+                    .longitude(recruiter.getCompanyLocation().getLongitude())
+                    .placeId(recruiter.getCompanyLocation().getPlaceId())
+                    .googleMapsUrl(recruiter.getCompanyLocation().getGoogleMapsUrl())
+                    .build();
+        }
+
         return RecruiterResponseDTO.builder()
                 .id(recruiter.getId())
                 .username(recruiter.getUsername())
@@ -16,7 +36,7 @@ public class RecruiterMapper {
                 .companyName(recruiter.getCompanyName())
                 .companyLogoUrl(recruiter.getCompanyLogoUrl())
                 .companyDescription(recruiter.getCompanyDescription())
-                .companyLocation(recruiter.getCompanyLocation())
+                .companyLocation(locationDTO)  // Use the location DTO
                 .companyWebsite(recruiter.getCompanyWebsite())
                 .verificationStatus(recruiter.getVerificationStatus())
                 .build();

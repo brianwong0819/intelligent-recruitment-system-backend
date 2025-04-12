@@ -2,33 +2,61 @@
 
 package com.event.recruitment.intelligent_recruitment_system.service.job;
 
+import com.event.recruitment.intelligent_recruitment_system.dto.common.PagedResponseDTO;
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import com.event.recruitment.intelligent_recruitment_system.dto.request.job.ChangeJobStatusRequest;
 import com.event.recruitment.intelligent_recruitment_system.dto.request.job.CreateJobRequest;
+import com.event.recruitment.intelligent_recruitment_system.dto.request.job.JobListFilterRequest;
 import com.event.recruitment.intelligent_recruitment_system.dto.request.job.UpdateJobRequest;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.job.JobResponseDTO;
+import com.event.recruitment.intelligent_recruitment_system.dto.response.job.JobScheduleResponseDTO;
+import com.event.recruitment.intelligent_recruitment_system.dto.response.job.JobSummaryResponseDTO;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobLocation;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobSchedule;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobScheduleDate;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.Jobs;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Projects;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobStatusType;
+import com.event.recruitment.intelligent_recruitment_system.model.enums.RecruiterType;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobRepository;
+import com.event.recruitment.intelligent_recruitment_system.repository.job.JobSpecification;
 import com.event.recruitment.intelligent_recruitment_system.repository.recruiter.ProjectRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
+import com.event.recruitment.intelligent_recruitment_system.util.JobMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.hibernate.Hibernate;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class JobService {
 
     private final JobRepository jobRepository;
     private final ProjectRepository projectRepository;
     private final SecurityUtil securityUtil;
+    private final JobMapper jobMapper;
 
+    /**
+     * Create a new job
+     *
+     * @param request Job creation request
+     * @return Response with created job details
+     */
     @Transactional
     public Response<JobResponseDTO> createJob(CreateJobRequest request) {
         try {
@@ -49,7 +77,7 @@ public class JobService {
                     .jobScope(request.getJobScope())
                     .requirements(request.getRequirements())
                     .salary(request.getSalary())
-                    .paymentTerms(request.getPaymentTerms()) // Add payment terms
+                    .paymentTerms(request.getPaymentTerms())
                     .salaryType(request.getSalaryType())
                     .benefits(request.getBenefits())
                     .status(JobStatusType.DRAFT)
@@ -67,6 +95,12 @@ public class JobService {
         }
     }
 
+    /**
+     * Get job by ID (protected, requires authentication)
+     *
+     * @param jobId Job ID
+     * @return Response with job details
+     */
     public Response<JobResponseDTO> getJobById(Long jobId) {
         try {
             Jobs job = jobRepository.findById(jobId)
@@ -84,6 +118,74 @@ public class JobService {
         }
     }
 
+    /**
+     * Get public job details (public, no authentication required)
+     *
+     * @param jobId Job ID
+     * @return Response with job details
+     */
+    @Transactional
+    public Response<JobResponseDTO> getPublicJobDetails(Long jobId) {
+        try {
+            Optional<Jobs> jobOptional = jobRepository.findByIdWithAllDetails(jobId);
+
+            if (jobOptional.isEmpty()) {
+                return new Response<>(HttpStatus.NOT_FOUND.value(), "Job not found", null);
+            }
+
+            Jobs job = jobOptional.get();
+
+            // Verify that job is in OPEN status
+            if (job.getStatus() != JobStatusType.OPEN) {
+                return new Response<>(HttpStatus.NOT_FOUND.value(), "Job is not available", null);
+            }
+
+            // Manually initialize the collections to avoid LazyInitializationException
+            forceInitialization(job);
+
+            JobResponseDTO responseDTO = mapToJobResponseDTO(job);
+            return new Response<>(HttpStatus.OK.value(), "Job retrieved successfully", responseDTO);
+        } catch (Exception e) {
+            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Failed to retrieve job: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * Force initialization of lazy-loaded collections
+     * @param job The job entity to initialize
+     */
+    private void forceInitialization(Jobs job) {
+        if (job.getJobSchedules() != null) {
+            Hibernate.initialize(job.getJobSchedules());
+
+            for (JobSchedule schedule : job.getJobSchedules()) {
+                if (schedule.getScheduleDates() != null) {
+                    Hibernate.initialize(schedule.getScheduleDates());
+
+                    for (JobScheduleDate date : schedule.getScheduleDates()) {
+                        if (date.getJobLocations() != null) {
+                            Hibernate.initialize(date.getJobLocations());
+
+                            // Initialize location
+                            for (JobLocation location : date.getJobLocations()) {
+                                if (location.getLocation() != null) {
+                                    Hibernate.initialize(location.getLocation());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Get jobs by project ID
+     *
+     * @param projectId Project ID
+     * @return Response with list of jobs
+     */
     public Response<List<JobResponseDTO>> getJobsByProjectId(Long projectId) {
         try {
             // Verify that project exists and belongs to the current recruiter
@@ -106,6 +208,11 @@ public class JobService {
         }
     }
 
+    /**
+     * Get all jobs for the current recruiter
+     *
+     * @return Response with list of jobs
+     */
     public Response<List<JobResponseDTO>> getAllJobs() {
         try {
             Long recruiterId = securityUtil.getCurrentRecruiterId();
@@ -126,6 +233,163 @@ public class JobService {
         } catch (Exception e) {
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Failed to retrieve jobs: " + e.getMessage(), null);
         }
+    }
+
+    /**
+     * Get jobs with filters (public endpoint)
+     *
+     * @param filterRequest Filter criteria
+     * @return Response with paged job summary results
+     */
+    public Response<PagedResponseDTO<JobSummaryResponseDTO>> getJobsWithFilters(JobListFilterRequest filterRequest) {
+        try {
+            // Set default pagination values if not provided
+            int page = filterRequest.getPage() != null ? filterRequest.getPage() : 0;
+            int size = filterRequest.getSize() != null ? filterRequest.getSize() : 10;
+
+            // Set default sorting if not provided
+            String sortBy = filterRequest.getSortBy() != null ? filterRequest.getSortBy() : "createdAt";
+            String sortDirection = filterRequest.getSortDirection() != null ? filterRequest.getSortDirection() : "desc";
+
+            // Create pageable object
+            Sort sort = Sort.by(Sort.Direction.fromString(sortDirection), sortBy);
+            Pageable pageable = PageRequest.of(page, size, sort);
+
+            // Create specification
+            Specification<Jobs> spec = JobSpecification.getJobsWithFilters(filterRequest);
+
+            // Execute query
+            Page<Jobs> jobsPage = jobRepository.findAll(spec, pageable);
+
+            // Map to DTOs
+            List<JobSummaryResponseDTO> jobSummaries = jobsPage.getContent().stream()
+                    .map(job -> {
+                        JobSummaryResponseDTO dto = jobMapper.toSummaryDTO(job);
+
+                        // Calculate distances if latitude/longitude provided
+//                        if (filterRequest.getLatitude() != null &&
+//                                filterRequest.getLongitude() != null &&
+//                                filterRequest.getDistance() != null) {
+//
+//                            Double distance = calculateDistanceToClosestLocation(
+//                                    job,
+//                                    filterRequest.getLatitude(),
+//                                    filterRequest.getLongitude()
+//                            );
+//
+//                            if (distance != null) {
+//                                dto.setDistance(distance);
+//                            }
+//                        }
+
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+
+            // Create paged response
+            PagedResponseDTO<JobSummaryResponseDTO> pagedResponse = PagedResponseDTO.<JobSummaryResponseDTO>builder()
+                    .content(jobSummaries)
+                    .page(jobsPage.getNumber())
+                    .size(jobsPage.getSize())
+                    .totalElements(jobsPage.getTotalElements())
+                    .totalPages(jobsPage.getTotalPages())
+                    .last(jobsPage.isLast())
+                    .build();
+
+            return new Response<>(HttpStatus.OK.value(), "Jobs retrieved successfully", pagedResponse);
+        } catch (Exception e) {
+            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Failed to retrieve jobs: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * Calculate the distance to the closest location associated with a job
+     * @param job The job entity
+     * @param latitude The reference latitude
+     * @param longitude The reference longitude
+     * @return The distance in kilometers to the closest location, or null if no locations
+     */
+//    private Double calculateDistanceToClosestLocation(Jobs job, Double latitude, Double longitude) {
+//        List<Location> jobLocations = new ArrayList<>();
+//
+//        // Collect all locations from the job
+//        if (job.getJobLocations() != null) {
+//            for (JobLocation jobLocation : job.getJobLocations()) {
+//                if (jobLocation.getLocation() != null) {
+//                    jobLocations.add(jobLocation.getLocation());
+//                }
+//            }
+//        }
+//
+//        // If we don't have any job locations directly, try to get them from job schedules
+//        if (jobLocations.isEmpty() && job.getJobSchedules() != null) {
+//            for (JobSchedule schedule : job.getJobSchedules()) {
+//                if (schedule.getScheduleDates() != null) {
+//                    for (JobScheduleDate date : schedule.getScheduleDates()) {
+//                        if (date.getJobLocations() != null) {
+//                            for (JobLocation jobLocation : date.getJobLocations()) {
+//                                if (jobLocation.getLocation() != null) {
+//                                    jobLocations.add(jobLocation.getLocation());
+//                                }
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//
+//        if (jobLocations.isEmpty()) {
+//            return null;
+//        }
+//
+//        // Find the closest location
+//        Double minDistance = null;
+//
+//        for (Location location : jobLocations) {
+//            if (location.getLatitude() != null && location.getLongitude() != null) {
+//                double distance = calculateHaversineDistance(
+//                        latitude, longitude,
+//                        location.getLatitude(), location.getLongitude()
+//                );
+//
+//                if (minDistance == null || distance < minDistance) {
+//                    minDistance = distance;
+//                }
+//            }
+//        }
+//
+//        return minDistance;
+//    }
+
+    /**
+     * Calculate distance between two points using the Haversine formula
+     * @param lat1 Latitude of first point
+     * @param lon1 Longitude of first point
+     * @param lat2 Latitude of second point
+     * @param lon2 Longitude of second point
+     * @return Distance in kilometers
+     */
+    private double calculateHaversineDistance(Double lat1, Double lon1, Double lat2, Double lon2) {
+        // Handle potential null values
+        double latitude1 = (lat1 != null) ? lat1 : 0.0;
+        double longitude1 = (lon1 != null) ? lon1 : 0.0;
+        double latitude2 = (lat2 != null) ? lat2 : 0.0;
+        double longitude2 = (lon2 != null) ? lon2 : 0.0;
+
+        // Earth's radius in kilometers
+        final double R = 6371.0;
+
+        double dLat = Math.toRadians(latitude2 - latitude1);
+        double dLon = Math.toRadians(longitude2 - longitude1);
+
+        double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(Math.toRadians(latitude1)) * Math.cos(Math.toRadians(latitude2)) *
+                        Math.sin(dLon/2) * Math.sin(dLon/2);
+
+        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+        return R * c; // Distance in kilometers
     }
 
     /**
@@ -181,24 +445,6 @@ public class JobService {
         }
     }
 
-    private JobResponseDTO mapToJobResponseDTO(Jobs job) {
-        return JobResponseDTO.builder()
-                .id(job.getId())
-                .projectId(job.getProject().getId())
-                .projectName(job.getProject().getName())
-                .title(job.getTitle())
-                .jobTitleType(job.getJobTitleType())
-                .jobScope(job.getJobScope())
-                .requirements(job.getRequirements())
-                .salary(job.getSalary())
-                .paymentTerms(job.getPaymentTerms()) // Add payment terms
-                .salaryType(job.getSalaryType())
-                .benefits(job.getBenefits())
-                .status(job.getStatus())
-                .createdAt(job.getCreatedAt())
-                .build();
-    }
-
     /**
      * Change the status of a job
      *
@@ -243,6 +489,91 @@ public class JobService {
                     "Failed to change job status: " + e.getMessage(),
                     null);
         }
+    }
+
+    /**
+     * Maps a job entity to a detailed response DTO including schedules, dates, and locations.
+     */
+    private JobResponseDTO mapToJobResponseDTO(Jobs job) {
+        // Handle company name based on recruiter type
+        String companyName;
+        String originalCompanyName = job.getProject().getRecruiter().getCompanyName();
+        RecruiterType recruiterType = job.getProject().getRecruiter().getRecruiterType();
+
+        if ((originalCompanyName == null || originalCompanyName.trim().isEmpty()) ||
+                RecruiterType.INDIVIDUAL.equals(recruiterType)) {
+            companyName = job.getProject().getRecruiter().getRecruiterRepName();
+        } else {
+            companyName = originalCompanyName;
+        }
+
+        // Map job schedules
+        List<JobScheduleResponseDTO> scheduleResponseDTOs = new ArrayList<>();
+        if (job.getJobSchedules() != null && !job.getJobSchedules().isEmpty()) {
+            scheduleResponseDTOs = job.getJobSchedules().stream()
+                    .map(jobSchedule -> {
+                        // Map schedule dates
+                        List<JobScheduleResponseDTO.JobScheduleDateResponseDTO> scheduleDateDTOs =
+                                jobSchedule.getScheduleDates().stream()
+                                        .map(scheduleDate -> {
+                                            // Map job locations
+                                            List<JobScheduleResponseDTO.JobLocationResponseDTO> locationDTOs =
+                                                    scheduleDate.getJobLocations().stream()
+                                                            .map(jobLocation -> JobScheduleResponseDTO.JobLocationResponseDTO.builder()
+                                                                    .id(jobLocation.getId())
+                                                                    .locationId(jobLocation.getLocation().getId())
+                                                                    .locationName(jobLocation.getLocation().getName())
+                                                                    .positionsNeeded(jobLocation.getPositionsNeeded())
+                                                                    .positionsFilled(jobLocation.getPositionsFilled())
+                                                                    .status(jobLocation.getStatus().name())
+                                                                    .notes(jobLocation.getNotes())
+                                                                    .build())
+                                                            .collect(Collectors.toList());
+
+                                            return JobScheduleResponseDTO.JobScheduleDateResponseDTO.builder()
+                                                    .id(scheduleDate.getId())
+                                                    .workDate(scheduleDate.getWorkDate())
+                                                    .jobLocations(locationDTOs)
+                                                    .build();
+                                        })
+                                        .collect(Collectors.toList());
+
+                        return JobScheduleResponseDTO.builder()
+                                .id(jobSchedule.getId())
+                                .jobId(jobSchedule.getJob().getId())
+                                .startDate(jobSchedule.getStartDate())
+                                .endDate(jobSchedule.getEndDate())
+                                .startTime(jobSchedule.getStartTime())
+                                .endTime(jobSchedule.getEndTime())
+                                .hoursOfRestTime(jobSchedule.getHoursOfRestTime())
+                                .numPositions(jobSchedule.getNumPositions())
+                                .scheduleDates(scheduleDateDTOs)
+                                .build();
+                    })
+                    .collect(Collectors.toList());
+        }
+
+        return JobResponseDTO.builder()
+                .id(job.getId())
+                .projectId(job.getProject().getId())
+                .projectName(job.getProject().getName())
+                .title(job.getTitle())
+                .jobTitleType(job.getJobTitleType())
+                .jobScope(job.getJobScope())
+                .requirements(job.getRequirements())
+                .salary(job.getSalary())
+                .paymentTerms(job.getPaymentTerms())
+                .salaryType(job.getSalaryType())
+                .benefits(job.getBenefits())
+                .status(job.getStatus())
+                .createdAt(job.getCreatedAt())
+                // Add company/recruiter information
+                .companyName(companyName)
+                .companyLogoUrl(job.getProject().getRecruiter().getCompanyLogoUrl())
+                .recruiterType(recruiterType)
+                // Add job schedules
+                .jobSchedules(scheduleResponseDTOs)
+                .build();
     }
 
     /**

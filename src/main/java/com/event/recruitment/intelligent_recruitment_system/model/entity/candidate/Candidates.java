@@ -1,5 +1,6 @@
 package com.event.recruitment.intelligent_recruitment_system.model.entity.candidate;
 
+import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.*;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -55,8 +56,9 @@ public class Candidates {
     @Column(name = "profile_picture_url")
     private String profilePictureUrl;
 
-    @Column(name = "preferred_location")
-    private String preferredLocation;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "preferred_location_id")
+    private Location preferredLocation;
 
     @Enumerated(EnumType.STRING)
     private Availability availability;

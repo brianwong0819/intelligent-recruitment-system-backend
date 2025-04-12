@@ -4,11 +4,15 @@ import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import com.event.recruitment.intelligent_recruitment_system.dto.request.common.ChangePasswordRequest;
 import com.event.recruitment.intelligent_recruitment_system.dto.request.common.UpdateProfileRequest;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.Candidates;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Recruiters;
 import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateRepository;
+import com.event.recruitment.intelligent_recruitment_system.repository.location.LocationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.recruiter.RecruiterRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.jwt.JwtUtil;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
+import com.event.recruitment.intelligent_recruitment_system.util.CandidateMapper;
+import com.event.recruitment.intelligent_recruitment_system.util.RecruiterMapper;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -22,17 +26,20 @@ public class ProfileService {
 
     private final CandidateRepository candidateRepository;
     private final RecruiterRepository recruiterRepository;
+    private final LocationRepository locationRepository;
     private final JwtUtil jwtUtil;
     private final PasswordEncoder passwordEncoder;
     private final SecurityUtil securityUtil;
 
     public ProfileService(CandidateRepository candidateRepository,
                           RecruiterRepository recruiterRepository,
+                          LocationRepository locationRepository,
                           JwtUtil jwtUtil,
                           PasswordEncoder passwordEncoder,
                           SecurityUtil securityUtil) {
         this.candidateRepository = candidateRepository;
         this.recruiterRepository = recruiterRepository;
+        this.locationRepository = locationRepository;
         this.jwtUtil = jwtUtil;
         this.passwordEncoder = passwordEncoder;
         this.securityUtil = securityUtil;
@@ -155,7 +162,22 @@ public class ProfileService {
             if (updateRequest.getGender() != null) candidate.setGender(updateRequest.getGender());
             if (updateRequest.getDateOfBirth() != null) candidate.setDateOfBirth(updateRequest.getDateOfBirth());
             if (updateRequest.getProfilePictureUrl() != null) candidate.setProfilePictureUrl(updateRequest.getProfilePictureUrl());
-            if (updateRequest.getPreferredLocation() != null) candidate.setPreferredLocation(updateRequest.getPreferredLocation());
+
+            // Handle preferred location update using location ID
+            if (updateRequest.getPreferredLocationId() != null) {
+                // Find the location by ID
+                Optional<Location> locationOptional = locationRepository.findById(updateRequest.getPreferredLocationId());
+                if (locationOptional.isPresent()) {
+                    candidate.setPreferredLocation(locationOptional.get());
+                } else {
+                    return Response.builder()
+                            .statusCode(404)
+                            .message("Location not found with the given ID")
+                            .data(null)
+                            .build();
+                }
+            }
+
             if (updateRequest.getAvailability() != null) candidate.setAvailability(updateRequest.getAvailability());
             if (updateRequest.getBio() != null) candidate.setBio(updateRequest.getBio());
             if (updateRequest.getResumeUrl() != null) candidate.setResumeUrl(updateRequest.getResumeUrl());
@@ -167,11 +189,13 @@ public class ProfileService {
                 candidate.setRace(updateRequest.getRace());
             }
 
-            candidateRepository.save(candidate);
+            Candidates savedCandidate = candidateRepository.save(candidate);
+
+            // Convert to DTO before returning to ensure location is properly included
             return Response.builder()
                     .statusCode(200)
                     .message("Candidate profile updated successfully")
-                    .data(candidate)
+                    .data(CandidateMapper.toCandidateResponseDTO(savedCandidate))
                     .build();
         }
         return Response.builder()
@@ -210,14 +234,31 @@ public class ProfileService {
             if (updateRequest.getCompanyName() != null) recruiter.setCompanyName(updateRequest.getCompanyName());
             if (updateRequest.getCompanyLogoUrl() != null) recruiter.setCompanyLogoUrl(updateRequest.getCompanyLogoUrl());
             if (updateRequest.getCompanyDescription() != null) recruiter.setCompanyDescription(updateRequest.getCompanyDescription());
-            if (updateRequest.getCompanyLocation() != null) recruiter.setCompanyLocation(updateRequest.getCompanyLocation());
+
+            // Handle company location update using location ID
+            if (updateRequest.getCompanyLocationId() != null) {
+                // Find the location by ID
+                Optional<Location> locationOptional = locationRepository.findById(updateRequest.getCompanyLocationId());
+                if (locationOptional.isPresent()) {
+                    recruiter.setCompanyLocation(locationOptional.get());
+                } else {
+                    return Response.builder()
+                            .statusCode(404)
+                            .message("Location not found with the given ID")
+                            .data(null)
+                            .build();
+                }
+            }
+
             if (updateRequest.getCompanyWebsite() != null) recruiter.setCompanyWebsite(updateRequest.getCompanyWebsite());
 
-            recruiterRepository.save(recruiter);
+            Recruiters savedRecruiter = recruiterRepository.save(recruiter);
+
+            // Convert to DTO before returning to ensure location is properly included
             return Response.builder()
                     .statusCode(200)
                     .message("Recruiter profile updated successfully")
-                    .data(recruiter)
+                    .data(RecruiterMapper.toRecruiterResponseDTO(savedRecruiter))
                     .build();
         }
         return Response.builder()

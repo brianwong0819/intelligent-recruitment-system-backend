@@ -21,7 +21,7 @@ public class UpdateProfileRequest {
     private LocalDate dateOfBirth;     // Date of birth (LocalDate)
     private Race race;                 // ENUM: Malay, Chinese, Indian, Indigenous, Other Bumiputera, Other
     private String profilePictureUrl;  // Profile Picture URL
-    private String preferredLocation;  // Preferred work location
+    private Long preferredLocationId;   // Preferred work location
     private Availability availability; // ENUM: ANYTIME, WEEKDAYS_ONLY, WEEKENDS_ONLY, CUSTOM_DATES
     private String bio;                // Personal introduction
     private List<Language> languages;  // List of languages the candidate speaks
@@ -34,6 +34,7 @@ public class UpdateProfileRequest {
     private String companyName;           // Company name
     private String companyLogoUrl;        // Company logo URL
     private String companyDescription;    // Company description
-    private String companyLocation;       // Company address/location
+    // Replace string location with location ID
+    private Long companyLocationId;
     private String companyWebsite;        // Company website
 }
