@@ -43,7 +43,7 @@ public class CandidateFileService {
     private final CandidateRepository candidateRepository;
     private final SecurityUtil securityUtil;
 
-    @Value("${file.upload-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/photos}")
+    @Value("${file.upload-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/working-photos}")
     private String photoUploadDir;
 
     @Value("${file.comcard-upload-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/comcards}")
@@ -56,7 +56,7 @@ public class CandidateFileService {
     private String resumeUploadDir;
 
     /**
-     * Upload a working photo for the logged-in candidate
+     * Upload a working photo for the logged-in candidate (maximum 3 allowed)
      */
     public Response<?> uploadWorkingPhoto(MultipartFile file, CandidatePhotoUploadRequest request) {
         try {
@@ -82,6 +82,14 @@ public class CandidateFileService {
                 return new Response<>(400, "Only image files are allowed", null);
             }
 
+            // Get existing working photos to check count
+            List<CandidateWorkingPhoto> existingPhotos = photoRepository.findByCandidateIdOrderByUploadedAtDesc(candidate.getId());
+
+            // Check if candidate already has 3 working photos
+            if (existingPhotos.size() >= 3) {
+                return new Response<>(400, "Maximum of 3 working photos allowed. Please delete an existing photo before uploading a new one.", null);
+            }
+
             // Create upload directory if it doesn't exist
             Path uploadPath = Paths.get(photoUploadDir);
             if (!Files.exists(uploadPath)) {
@@ -99,7 +107,7 @@ public class CandidateFileService {
             Files.copy(file.getInputStream(), filePath);
 
             // Save to database
-            String photoUrl = "/assets/photos/" + newFilename;
+            String photoUrl = "/assets/working-photos/" + newFilename;
             CandidateWorkingPhoto photo = new CandidateWorkingPhoto(
                     candidate.getId(),
                     photoUrl,

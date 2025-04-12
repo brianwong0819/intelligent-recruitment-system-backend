@@ -8,5 +8,8 @@ public enum JobType {
     EVENT_CREW,
     BRAND_AMBASSADOR,
     SUPERVISOR,
+    SETUP_CREW,
+    MASCOT_CREW,
+    USHER,
     OTHER
 }

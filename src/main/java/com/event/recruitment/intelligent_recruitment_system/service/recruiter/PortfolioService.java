@@ -16,6 +16,7 @@ import com.event.recruitment.intelligent_recruitment_system.security.util.Securi
 import com.event.recruitment.intelligent_recruitment_system.util.PortfolioMapper;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -36,7 +37,8 @@ public class PortfolioService {
     private final RecruiterRepository recruiterRepository;
     private final SecurityUtil securityUtil;
 
-    private static final String UPLOAD_DIR = "uploads/recruiter/portfolio/";
+    @Value("${file.portfolio-media-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/portfolio-media}")
+    private String portfolioMediaUploadDir;
 
     @Transactional
     public Response<PortfolioResponseDTO> createPortfolio(CreatePortfolioRequest request) {
@@ -231,8 +233,8 @@ public class PortfolioService {
             for (MultipartFile file : files) {
                 if (file != null && !file.isEmpty()) {
                     // Save file
-                    String fileName = saveFile(file, recruiterId);
-                    String mediaUrl = "/" + UPLOAD_DIR + recruiterId + "/" + fileName;
+                    String fileName = saveFile(file);
+                    String mediaUrl = "/assets/portfolio-media/" + fileName;
 
                     // Create media entity
                     EventMedia media = PortfolioMapper.toEntity(mediaUrl, portfolioId);
@@ -282,14 +284,12 @@ public class PortfolioService {
             }
 
             // Delete file
-            // Note: In a production system, you might want to use a storage service
-            // that handles file deletion more robustly
             try {
                 String mediaUrl = mediaOpt.get().getMediaUrl();
                 if (mediaUrl != null && !mediaUrl.isEmpty()) {
-                    String filePath = mediaUrl.replace("/", "");
-                    Path path = Paths.get(filePath);
-                    Files.deleteIfExists(path);
+                    String filename = mediaUrl.substring(mediaUrl.lastIndexOf("/") + 1);
+                    Path filePath = Paths.get(portfolioMediaUploadDir).resolve(filename);
+                    Files.deleteIfExists(filePath);
                 }
             } catch (IOException e) {
                 // Log but continue with DB deletion
@@ -335,8 +335,8 @@ public class PortfolioService {
             }
 
             // Save file
-            String fileName = saveFile(file, recruiterId);
-            String mediaUrl = "/" + UPLOAD_DIR + recruiterId + "/" + fileName;
+            String fileName = saveFile(file);
+            String mediaUrl = "/assets/portfolio-media/" + fileName;
 
             // Create media entity
             EventMedia media = PortfolioMapper.toEntity(mediaUrl, portfolioId);
@@ -352,10 +352,12 @@ public class PortfolioService {
         }
     }
 
-    private String saveFile(MultipartFile file, Integer recruiterId) throws IOException {
+    private String saveFile(MultipartFile file) throws IOException {
         // Create directories if they don't exist
-        Path directoryPath = Paths.get(UPLOAD_DIR + recruiterId);
-        Files.createDirectories(directoryPath);
+        Path uploadPath = Paths.get(portfolioMediaUploadDir);
+        if (!Files.exists(uploadPath)) {
+            Files.createDirectories(uploadPath);
+        }
 
         // Generate unique filename
         String originalFilename = Objects.requireNonNull(file.getOriginalFilename());
@@ -363,7 +365,7 @@ public class PortfolioService {
         String newFilename = UUID.randomUUID() + fileExtension;
 
         // Save file
-        Path filePath = directoryPath.resolve(newFilename);
+        Path filePath = uploadPath.resolve(newFilename);
         Files.copy(file.getInputStream(), filePath);
 
         return newFilename;

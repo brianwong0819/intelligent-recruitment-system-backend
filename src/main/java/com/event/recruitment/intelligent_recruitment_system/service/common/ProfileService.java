@@ -204,7 +204,7 @@ public class ProfileService {
             }
 
             // Update other fields
-            if (updateRequest.getName() != null) recruiter.setRecruiterRepName(updateRequest.getName());
+            if (updateRequest.getRecruiterRepName() != null) recruiter.setRecruiterRepName(updateRequest.getRecruiterRepName());
             if (updateRequest.getPhoneNumber() != null) recruiter.setPhoneNumber(updateRequest.getPhoneNumber());
             if (updateRequest.getRecruiterType() != null) recruiter.setRecruiterType(updateRequest.getRecruiterType());
             if (updateRequest.getCompanyName() != null) recruiter.setCompanyName(updateRequest.getCompanyName());

@@ -30,6 +30,7 @@ public class UpdateProfileRequest {
 
     // ✅ 仅适用于 Recruiter
     private RecruiterType recruiterType;  // ENUM: Individual, Freelance, Agency, Company
+    private String recruiterRepName;
     private String companyName;           // Company name
     private String companyLogoUrl;        // Company logo URL
     private String companyDescription;    // Company description
