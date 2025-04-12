@@ -11,6 +11,7 @@ import com.event.recruitment.intelligent_recruitment_system.dto.request.job.Upda
 import com.event.recruitment.intelligent_recruitment_system.dto.response.job.JobResponseDTO;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.job.JobScheduleResponseDTO;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.job.JobSummaryResponseDTO;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.Candidates;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobLocation;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobSchedule;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobScheduleDate;
@@ -19,8 +20,10 @@ import com.event.recruitment.intelligent_recruitment_system.model.entity.locatio
 import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Projects;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobStatusType;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.RecruiterType;
+import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobSpecification;
+import com.event.recruitment.intelligent_recruitment_system.repository.location.LocationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.recruiter.ProjectRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
 import com.event.recruitment.intelligent_recruitment_system.util.JobMapper;
@@ -50,6 +53,8 @@ public class JobService {
     private final ProjectRepository projectRepository;
     private final SecurityUtil securityUtil;
     private final JobMapper jobMapper;
+    private final CandidateRepository candidateRepository;
+    private final LocationRepository locationRepository;
 
     /**
      * Create a new job
@@ -267,20 +272,20 @@ public class JobService {
                         JobSummaryResponseDTO dto = jobMapper.toSummaryDTO(job);
 
                         // Calculate distances if latitude/longitude provided
-//                        if (filterRequest.getLatitude() != null &&
-//                                filterRequest.getLongitude() != null &&
-//                                filterRequest.getDistance() != null) {
-//
-//                            Double distance = calculateDistanceToClosestLocation(
-//                                    job,
-//                                    filterRequest.getLatitude(),
-//                                    filterRequest.getLongitude()
-//                            );
-//
-//                            if (distance != null) {
-//                                dto.setDistance(distance);
-//                            }
-//                        }
+                        if (filterRequest.getLatitude() != null &&
+                                filterRequest.getLongitude() != null &&
+                                filterRequest.getDistance() != null) {
+
+                            Double distance = jobMapper.calculateDistanceToClosestLocation(
+                                    job,
+                                    filterRequest.getLatitude(),
+                                    filterRequest.getLongitude()
+                            );
+
+                            if (distance != null) {
+                                dto.setDistance(distance);
+                            }
+                        }
 
                         return dto;
                     })
@@ -298,98 +303,66 @@ public class JobService {
 
             return new Response<>(HttpStatus.OK.value(), "Jobs retrieved successfully", pagedResponse);
         } catch (Exception e) {
+            log.error("Error retrieving filtered jobs", e);
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Failed to retrieve jobs: " + e.getMessage(), null);
         }
     }
 
     /**
-     * Calculate the distance to the closest location associated with a job
-     * @param job The job entity
-     * @param latitude The reference latitude
-     * @param longitude The reference longitude
-     * @return The distance in kilometers to the closest location, or null if no locations
+     * Get jobs near the candidate's preferred location
+     *
+     * @param distance Distance in kilometers to search around the candidate's preferred location
+     * @param page Page number for pagination
+     * @param size Page size for pagination
+     * @param sortBy Field to sort by
+     * @param sortDirection Direction to sort (asc/desc)
+     * @return Response with paged job summary results
      */
-//    private Double calculateDistanceToClosestLocation(Jobs job, Double latitude, Double longitude) {
-//        List<Location> jobLocations = new ArrayList<>();
-//
-//        // Collect all locations from the job
-//        if (job.getJobLocations() != null) {
-//            for (JobLocation jobLocation : job.getJobLocations()) {
-//                if (jobLocation.getLocation() != null) {
-//                    jobLocations.add(jobLocation.getLocation());
-//                }
-//            }
-//        }
-//
-//        // If we don't have any job locations directly, try to get them from job schedules
-//        if (jobLocations.isEmpty() && job.getJobSchedules() != null) {
-//            for (JobSchedule schedule : job.getJobSchedules()) {
-//                if (schedule.getScheduleDates() != null) {
-//                    for (JobScheduleDate date : schedule.getScheduleDates()) {
-//                        if (date.getJobLocations() != null) {
-//                            for (JobLocation jobLocation : date.getJobLocations()) {
-//                                if (jobLocation.getLocation() != null) {
-//                                    jobLocations.add(jobLocation.getLocation());
-//                                }
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//        }
-//
-//        if (jobLocations.isEmpty()) {
-//            return null;
-//        }
-//
-//        // Find the closest location
-//        Double minDistance = null;
-//
-//        for (Location location : jobLocations) {
-//            if (location.getLatitude() != null && location.getLongitude() != null) {
-//                double distance = calculateHaversineDistance(
-//                        latitude, longitude,
-//                        location.getLatitude(), location.getLongitude()
-//                );
-//
-//                if (minDistance == null || distance < minDistance) {
-//                    minDistance = distance;
-//                }
-//            }
-//        }
-//
-//        return minDistance;
-//    }
+    public Response<PagedResponseDTO<JobSummaryResponseDTO>> getJobsNearCandidateLocation(
+            Double distance, Integer page, Integer size, String sortBy, String sortDirection) {
+        try {
+            // Get the current candidate from security context
+            String username = securityUtil.getCurrentUsername();
+            if (username == null) {
+                return new Response<>(HttpStatus.UNAUTHORIZED.value(),
+                        "Authentication required", null);
+            }
 
-    /**
-     * Calculate distance between two points using the Haversine formula
-     * @param lat1 Latitude of first point
-     * @param lon1 Longitude of first point
-     * @param lat2 Latitude of second point
-     * @param lon2 Longitude of second point
-     * @return Distance in kilometers
-     */
-    private double calculateHaversineDistance(Double lat1, Double lon1, Double lat2, Double lon2) {
-        // Handle potential null values
-        double latitude1 = (lat1 != null) ? lat1 : 0.0;
-        double longitude1 = (lon1 != null) ? lon1 : 0.0;
-        double latitude2 = (lat2 != null) ? lat2 : 0.0;
-        double longitude2 = (lon2 != null) ? lon2 : 0.0;
+            // Fetch the candidate and their preferred location
+            Candidates candidate = candidateRepository.findByUsername(username)
+                    .orElseThrow(() -> new RuntimeException("Candidate not found"));
 
-        // Earth's radius in kilometers
-        final double R = 6371.0;
+            // Check if candidate has a preferred location
+            Location preferredLocation = candidate.getPreferredLocation();
+            if (preferredLocation == null) {
+                return new Response<>(HttpStatus.BAD_REQUEST.value(),
+                        "No preferred location set. Please update your profile with a preferred location.", null);
+            }
 
-        double dLat = Math.toRadians(latitude2 - latitude1);
-        double dLon = Math.toRadians(longitude2 - longitude1);
+            if (preferredLocation.getLatitude() == null || preferredLocation.getLongitude() == null) {
+                return new Response<>(HttpStatus.BAD_REQUEST.value(),
+                        "Invalid location coordinates. Please update your preferred location.", null);
+            }
 
-        double a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                Math.cos(Math.toRadians(latitude1)) * Math.cos(Math.toRadians(latitude2)) *
-                        Math.sin(dLon/2) * Math.sin(dLon/2);
+            // Create filter request with candidate's location parameters
+            JobListFilterRequest filterRequest = JobListFilterRequest.builder()
+                    .page(page)
+                    .size(size)
+                    .sortBy(sortBy)
+                    .sortDirection(sortDirection)
+                    .latitude(preferredLocation.getLatitude().doubleValue()) // Convert BigDecimal to double
+                    .longitude(preferredLocation.getLongitude().doubleValue()) // Convert BigDecimal to double
+                    .distance(distance)
+                    .build();
 
-        double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-        return R * c; // Distance in kilometers
+            // Use the existing filter method to get jobs near the candidate's location
+            return getJobsWithFilters(filterRequest);
+        } catch (Exception e) {
+            log.error("Error getting jobs near candidate location", e);
+            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Failed to retrieve jobs near your location: " + e.getMessage(), null);
+        }
     }
 
     /**

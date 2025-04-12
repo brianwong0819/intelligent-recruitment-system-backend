@@ -45,7 +45,7 @@ public class SecurityConfig {
                                 "/api/candidate/register",
                                 "/api/recruiter/register",
                                 "/api/locations/search",
-                                "/api/locations/getLocationById",
+                                "/api/locations/{id}",
                                 "/api/auth/candidate/login",
                                 "/api/auth/recruiter/login",
                                 "/api/auth/refresh",

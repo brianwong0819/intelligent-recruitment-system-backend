@@ -31,6 +31,7 @@ public class JobSummaryResponseDTO {
     private BigDecimal salary;
     private SalaryType salaryType;
     private String paymentTerms;
+    private String benefits;
     private LocalDateTime createdAt;
     private LocalDate earliestStartDate;
     private LocalDate latestEndDate;

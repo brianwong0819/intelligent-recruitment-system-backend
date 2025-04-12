@@ -9,6 +9,7 @@ import com.event.recruitment.intelligent_recruitment_system.model.entity.job.Job
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.Jobs;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobStatusType;
+import com.event.recruitment.intelligent_recruitment_system.model.enums.JobLocationStatus;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.ListingTimeFilter;
 import jakarta.persistence.criteria.*;
 import org.springframework.data.jpa.domain.Specification;
@@ -20,6 +21,12 @@ import java.util.List;
 
 public class JobSpecification {
 
+    /**
+     * Creates a specification for filtering jobs based on provided criteria
+     *
+     * @param filter Filter criteria for jobs
+     * @return Specification to be used with JPA repositories
+     */
     public static Specification<Jobs> getJobsWithFilters(JobListFilterRequest filter) {
         return (root, query, criteriaBuilder) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -49,13 +56,18 @@ public class JobSpecification {
 
             // Apply location filters (city/state/coordinates)
             if (filter.getLocation() != null && !filter.getLocation().trim().isEmpty()) {
-                // Join to job_locations and then to locations
-                Join<Jobs, JobLocation> jobLocationJoin = root.join("jobLocations");
+                // Join through all relationship tables to reach locations
+                Join<Jobs, JobSchedule> scheduleJoin = root.join("jobSchedules");
+                Join<JobSchedule, JobScheduleDate> scheduleDateJoin = scheduleJoin.join("scheduleDates");
+                Join<JobScheduleDate, JobLocation> jobLocationJoin = scheduleDateJoin.join("jobLocations");
                 Join<JobLocation, Location> locationJoin = jobLocationJoin.join("location");
 
-                String locationSearch = filter.getLocation().trim().toUpperCase();
+                // Filter job_locations that are OPEN
+                predicates.add(criteriaBuilder.equal(jobLocationJoin.get("status"), JobLocationStatus.OPEN));
 
                 // Search in both city and state columns
+                String locationSearch = filter.getLocation().trim().toUpperCase();
+
                 Predicate cityPredicate = criteriaBuilder.like(
                         criteriaBuilder.upper(locationJoin.get("city")),
                         "%" + locationSearch + "%"
@@ -66,15 +78,20 @@ public class JobSpecification {
                         "%" + locationSearch + "%"
                 );
 
-                // Match either city OR state
+                // Add location filter (match either city OR state)
                 predicates.add(criteriaBuilder.or(cityPredicate, statePredicate));
 
                 // Make the query distinct to avoid duplicates
                 query.distinct(true);
             } else if (filter.getLatitude() != null && filter.getLongitude() != null && filter.getDistance() != null) {
-                // Join to job_locations and locations
-                Join<Jobs, JobLocation> jobLocationJoin = root.join("jobLocations");
+                // Join through all relationship tables to reach locations
+                Join<Jobs, JobSchedule> scheduleJoin = root.join("jobSchedules");
+                Join<JobSchedule, JobScheduleDate> scheduleDateJoin = scheduleJoin.join("scheduleDates");
+                Join<JobScheduleDate, JobLocation> jobLocationJoin = scheduleDateJoin.join("jobLocations");
                 Join<JobLocation, Location> locationJoin = jobLocationJoin.join("location");
+
+                // Filter job_locations that are OPEN
+                predicates.add(criteriaBuilder.equal(jobLocationJoin.get("status"), JobLocationStatus.OPEN));
 
                 // Calculate a bounding box to filter locations first (for performance)
                 double lat = filter.getLatitude();
@@ -116,9 +133,10 @@ public class JobSpecification {
                 Join<JobSchedule, JobScheduleDate> scheduleDateJoin = scheduleJoin.join("scheduleDates");
 
                 // Find jobs with dates that overlap with the requested range
-                Predicate dateOverlap = criteriaBuilder.or(
-                        // Case 1: Work date is between start and end dates
-                        criteriaBuilder.between(scheduleDateJoin.get("workDate"), startDate, endDate)
+                Predicate dateOverlap = criteriaBuilder.between(
+                        scheduleDateJoin.get("workDate"),
+                        startDate,
+                        endDate
                 );
 
                 predicates.add(dateOverlap);
@@ -131,6 +149,12 @@ public class JobSpecification {
         };
     }
 
+    /**
+     * Calculate cutoff date based on the time filter
+     *
+     * @param timeFilter Time filter type
+     * @return LocalDateTime representing the cutoff date
+     */
     private static LocalDateTime calculateCutoffDate(ListingTimeFilter timeFilter) {
         LocalDateTime now = LocalDateTime.now();
 
