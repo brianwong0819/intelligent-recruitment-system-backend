@@ -5,11 +5,13 @@ import com.event.recruitment.intelligent_recruitment_system.dto.request.candidat
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.AvailabilityResponse;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateResponseDTO;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateReputation;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.Candidates;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateAvailabilityDate;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.Availability;
 import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateAvailabilityDateRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateRepository;
+import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateReputationRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
 import com.event.recruitment.intelligent_recruitment_system.util.CandidateMapper;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +34,8 @@ public class CandidateService {
     private final PasswordEncoder passwordEncoder;
     private final CandidateAvailabilityDateRepository availabilityDateRepository;
     private final SecurityUtil securityUtil;
+    private final CandidateReputationRepository candidateReputationRepository;
+
 
     // Register candidate
     @Transactional
@@ -76,6 +80,15 @@ public class CandidateService {
                 .build();
 
         Candidates savedCandidate = candidateRepository.save(candidate);
+
+        CandidateReputation reputation = CandidateReputation.builder()
+                .candidateId(savedCandidate.getId())
+                .score(100.0) // 初始分数为100
+                .createdAt(LocalDateTime.now())
+                .updatedAt(LocalDateTime.now())
+                .build();
+
+        candidateReputationRepository.save(reputation);
 
         // Convert to DTO before returning
         CandidateResponseDTO responseDTO = CandidateMapper.toCandidateResponseDTO(savedCandidate);

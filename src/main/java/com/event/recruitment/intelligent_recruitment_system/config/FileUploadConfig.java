@@ -28,7 +28,7 @@ public class FileUploadConfig implements WebMvcConfigurer {
         Path uploadPath = Paths.get(uploadDir);
         String uploadAbsolutePath = uploadPath.toFile().getAbsolutePath();
 
-        registry.addResourceHandler("/uploads/**")
+        registry.addResourceHandler("/api/files/**")
                 .addResourceLocations("file:" + uploadAbsolutePath + "/");
     }
 }

@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface CandidateComcardRepository extends JpaRepository<CandidateSelfphotoComcard, Long> {
     Optional<CandidateSelfphotoComcard> findById(Long id);
     Optional<CandidateSelfphotoComcard> findByCandidateId(Long candidateId);
+    long countByCandidateId(Long candidateId);
     List<CandidateSelfphotoComcard> findAllByCandidateId(Long candidateId);
 }

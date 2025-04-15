@@ -9,5 +9,6 @@ import java.util.List;
 @Repository
 public interface CandidateWorkingPhotoRepository extends JpaRepository<CandidateWorkingPhoto, Long> {
     List<CandidateWorkingPhoto> findByCandidateIdOrderByUploadedAtDesc(Long candidateId);
+    long countByCandidateId(Long candidateId);
     void deleteByCandidateIdAndId(Long candidateId, Long photoId);
 }

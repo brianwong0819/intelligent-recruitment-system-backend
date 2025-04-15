@@ -8,6 +8,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface JobLocationRepository extends JpaRepository<JobLocation, Long> {
@@ -18,6 +19,7 @@ public interface JobLocationRepository extends JpaRepository<JobLocation, Long> 
      * @return List of job locations
      */
     List<JobLocation> findByJobId(Long jobId);
+
 
     /**
      * Find job locations by schedule date ID
@@ -48,4 +50,17 @@ public interface JobLocationRepository extends JpaRepository<JobLocation, Long> 
     @Query("SELECT SUM(jl.positionsNeeded - jl.positionsFilled) FROM JobLocation jl " +
             "WHERE jl.job.id = :jobId")
     Integer countAvailablePositionsForJob(@Param("jobId") Long jobId);
+
+    /**
+     * Find job location by ID with job, project, and recruiter details
+     * @param id Job location ID
+     * @return Optional containing job location with details or empty
+     */
+    @Query("SELECT jl FROM JobLocation jl " +
+            "JOIN FETCH jl.job j " +
+            "JOIN FETCH j.project p " +
+            "JOIN FETCH p.recruiter r " +
+            "JOIN FETCH jl.location loc " +
+            "WHERE jl.id = :id")
+    Optional<JobLocation> findByIdWithJobDetails(@Param("id") Long id);
 }

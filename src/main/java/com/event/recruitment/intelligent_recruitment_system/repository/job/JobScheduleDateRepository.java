@@ -30,4 +30,11 @@ public interface JobScheduleDateRepository extends JpaRepository<JobScheduleDate
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    /**
+     * Count the number of schedule dates for a particular schedule
+     * @param jobScheduleId The job schedule ID
+     * @return Count of schedule dates
+     */
+    Integer countByJobScheduleId(Long jobScheduleId);
 }

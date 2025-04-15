@@ -35,7 +35,7 @@ public class RecruiterService {
     private final PasswordEncoder passwordEncoder;
     private final SecurityUtil securityUtil;
 
-    @Value("${file.company-logo-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/profile-pictures}")
+    @Value("${file.company-logo-dir:${file.upload-dir}/company-logos}")
     private String companyLogoUploadDir;
 
     @Transactional
@@ -148,7 +148,7 @@ public class RecruiterService {
             Files.copy(file.getInputStream(), filePath);
 
             // Update recruiter's company logo URL
-            String companyLogoUrl = "/assets/profile-pictures/" + newFilename;
+            String companyLogoUrl = "/api/files/company-logos/" + newFilename;
             recruiter.setCompanyLogoUrl(companyLogoUrl);
             recruiterRepository.save(recruiter);
 

@@ -37,7 +37,7 @@ public class PortfolioService {
     private final RecruiterRepository recruiterRepository;
     private final SecurityUtil securityUtil;
 
-    @Value("${file.portfolio-media-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/portfolio-media}")
+    @Value("${file.portfolio-media-dir:${file.upload-dir}/portfolio-media}")
     private String portfolioMediaUploadDir;
 
     @Transactional
@@ -234,7 +234,7 @@ public class PortfolioService {
                 if (file != null && !file.isEmpty()) {
                     // Save file
                     String fileName = saveFile(file);
-                    String mediaUrl = "/assets/portfolio-media/" + fileName;
+                    String mediaUrl = "/api/files/portfolio-media/" + fileName;
 
                     // Create media entity
                     EventMedia media = PortfolioMapper.toEntity(mediaUrl, portfolioId);
@@ -336,7 +336,7 @@ public class PortfolioService {
 
             // Save file
             String fileName = saveFile(file);
-            String mediaUrl = "/assets/portfolio-media/" + fileName;
+            String mediaUrl = "/api/files/portfolio-media/" + fileName;
 
             // Create media entity
             EventMedia media = PortfolioMapper.toEntity(mediaUrl, portfolioId);

@@ -52,6 +52,8 @@ public class SecurityConfig {
                                 "/api/auth/logout",
                                 "/api/jobs/public/**",
                                 "/api/public/**",
+                                "/api/files/**",
+                                "/samples/**",
                                 "/error"
                         ).permitAll()
                         // OPTIONS requests for CORS preflight

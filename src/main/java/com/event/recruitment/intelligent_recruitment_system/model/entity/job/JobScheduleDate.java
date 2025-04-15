@@ -47,6 +47,7 @@ public class JobScheduleDate {
         jobLocation.setJobScheduleDate(this);
     }
 
+
     // Helper method to clear job locations
     public void clearJobLocations() {
         if (this.jobLocations != null) {

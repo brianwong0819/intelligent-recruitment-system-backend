@@ -32,6 +32,8 @@ public class JobSummaryResponseDTO {
     private SalaryType salaryType;
     private String paymentTerms;
     private String benefits;
+    private String jobScope;
+    private String jobRequirements;
     private LocalDateTime createdAt;
     private LocalDate earliestStartDate;
     private LocalDate latestEndDate;
@@ -40,4 +42,9 @@ public class JobSummaryResponseDTO {
     private Integer totalPositions;
     private Integer availablePositions;
     private Double distance; // In kilometers, if distance-based search was used
+    private Integer totalWorkDays;
+
+
+    private boolean saved;
+    private boolean viewed;
 }

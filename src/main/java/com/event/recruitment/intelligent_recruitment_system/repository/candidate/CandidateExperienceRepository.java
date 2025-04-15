@@ -11,5 +11,6 @@ import java.util.Optional;
 public interface CandidateExperienceRepository extends JpaRepository<CandidateExperience, Long> {
     List<CandidateExperience> findByCandidateId(Long candidateId);
     Optional<CandidateExperience> findByIdAndCandidateId(Long id, Long candidateId);
+    long countByCandidateId(Long candidateId);
     void deleteByIdAndCandidateId(Long id, Long candidateId);
 }

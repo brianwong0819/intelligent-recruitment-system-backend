@@ -55,6 +55,8 @@ public class JobService {
     private final JobMapper jobMapper;
     private final CandidateRepository candidateRepository;
     private final LocationRepository locationRepository;
+    private final JobInteractionService jobInteractionService;
+
 
     /**
      * Create a new job
@@ -290,6 +292,8 @@ public class JobService {
                         return dto;
                     })
                     .collect(Collectors.toList());
+
+            jobInteractionService.enhanceJobListingsWithInteractionStatus(jobSummaries);
 
             // Create paged response
             PagedResponseDTO<JobSummaryResponseDTO> pagedResponse = PagedResponseDTO.<JobSummaryResponseDTO>builder()

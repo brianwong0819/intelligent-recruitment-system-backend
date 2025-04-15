@@ -43,16 +43,16 @@ public class CandidateFileService {
     private final CandidateRepository candidateRepository;
     private final SecurityUtil securityUtil;
 
-    @Value("${file.upload-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/working-photos}")
+    @Value("${file.working-photos-dir}")
     private String photoUploadDir;
 
-    @Value("${file.comcard-upload-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/comcards}")
+    @Value("${file.comcards-dir}")
     private String comcardUploadDir;
 
-    @Value("${file.profile-pic-upload-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/profile-pictures}")
+    @Value("${file.profile-pic-upload-dir}")
     private String profilePicUploadDir;
 
-    @Value("${file.resume-upload-dir:C:/Users/Acer/OneDrive/Desktop/fyp/Frontend Code/event-recruitment-frontend/src/assets/resumes}")
+    @Value("${file.resumes-dir}")
     private String resumeUploadDir;
 
     /**
@@ -107,7 +107,7 @@ public class CandidateFileService {
             Files.copy(file.getInputStream(), filePath);
 
             // Save to database
-            String photoUrl = "/assets/working-photos/" + newFilename;
+            String photoUrl = "/api/files/working-photos/" + newFilename;
             CandidateWorkingPhoto photo = new CandidateWorkingPhoto(
                     candidate.getId(),
                     photoUrl,
@@ -258,7 +258,7 @@ public class CandidateFileService {
             Files.copy(file.getInputStream(), filePath);
 
             // Save to database
-            String comcardUrl = "/assets/comcards/" + newFilename;
+            String comcardUrl = "/api/files/comcards/" + newFilename;
             CandidateSelfphotoComcard comcard = new CandidateSelfphotoComcard(
                     candidate.getId(),
                     comcardUrl
@@ -418,7 +418,7 @@ public class CandidateFileService {
             Files.copy(file.getInputStream(), filePath);
 
             // Update candidate's profile picture URL
-            String profilePictureUrl = "/assets/profile-pictures/" + newFilename;
+            String profilePictureUrl = "/api/files/profile-pictures/" + newFilename;
             candidate.setProfilePictureUrl(profilePictureUrl);
             candidateRepository.save(candidate);
 
@@ -492,7 +492,7 @@ public class CandidateFileService {
             Files.copy(file.getInputStream(), filePath);
 
             // Update candidate's resume URL
-            String resumeUrl = "/assets/resumes/" + newFilename;
+            String resumeUrl = "/api/files/resumes/" + newFilename;
             candidate.setResumeUrl(resumeUrl);
             candidateRepository.save(candidate);
 
