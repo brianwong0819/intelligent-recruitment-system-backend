@@ -5,6 +5,7 @@ import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import com.event.recruitment.intelligent_recruitment_system.dto.ai.CandidateAIEvaluationDataDTO;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateAvailabilityDate;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateExperience;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateReputation;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.Candidates;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobApplication;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobLocation;
@@ -13,6 +14,7 @@ import com.event.recruitment.intelligent_recruitment_system.model.entity.job.Job
 import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateAvailabilityDateRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateExperienceRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateRepository;
+import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateReputationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobApplicationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobScheduleDateRepository;
 import lombok.RequiredArgsConstructor;
@@ -34,7 +36,8 @@ public class CandidateAIEvaluationService {
     private final CandidateExperienceRepository experienceRepository;
     private final CandidateAvailabilityDateRepository availabilityDateRepository;
     private final JobApplicationRepository jobApplicationRepository;
-    private final JobScheduleDateRepository jobScheduleDateRepository; // Add this field
+    private final JobScheduleDateRepository jobScheduleDateRepository;
+    private final CandidateReputationRepository candidateReputationRepository; // New repository
 
 
     /**
@@ -82,6 +85,10 @@ public class CandidateAIEvaluationService {
             // Get candidate availability dates
             List<CandidateAvailabilityDate> availabilityDates =
                     availabilityDateRepository.findByCandidateId(candidate.getId());
+
+            // Get candidate reputation score
+            Optional<CandidateReputation> reputation = candidateReputationRepository.findByCandidateId(candidate.getId());
+            Double reputationScore = reputation.map(CandidateReputation::getScore).orElse(null);
 
             // Format dates for better readability
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -168,6 +175,9 @@ public class CandidateAIEvaluationService {
                     .totalWorkDays(appliedWorkDates.size())
                     .totalJobWorkingDays(totalJobWorkingDays)
 
+                    // Reputation score - new field
+                    .reputationScore(reputationScore)
+
                     .build();
 
             return new Response<>(200, "Candidate evaluation data collected successfully", evaluationData);
@@ -230,6 +240,10 @@ public class CandidateAIEvaluationService {
             List<CandidateAvailabilityDate> availabilityDates =
                     availabilityDateRepository.findByCandidateId(candidate.getId());
 
+            // Get candidate reputation score
+            Optional<CandidateReputation> reputation = candidateReputationRepository.findByCandidateId(candidate.getId());
+            Double reputationScore = reputation.map(CandidateReputation::getScore).orElse(null);
+
             // Format dates for better readability
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
@@ -291,6 +305,9 @@ public class CandidateAIEvaluationService {
                     .appliedWorkDates(List.of(workDate.format(formatter)))
                     .totalWorkDays(1)
                     .totalJobWorkingDays(totalJobWorkingDays)
+
+                    // Reputation score - new field
+                    .reputationScore(reputationScore)
 
                     .build();
 

@@ -38,6 +38,7 @@ public class CandidateAIEvaluationDataDTO {
     private String availabilityType;
     private List<String> availableDates;
 
+
     // Work experience
     private List<ExperienceData> experiences;
 
@@ -58,6 +59,9 @@ public class CandidateAIEvaluationDataDTO {
     // Work dates info
     private List<String> appliedWorkDates;
     private Integer totalWorkDays;
+
+    private Double reputationScore;
+
 
     @Data
     @NoArgsConstructor
