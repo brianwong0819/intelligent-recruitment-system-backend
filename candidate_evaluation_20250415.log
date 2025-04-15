@@ -60,3 +60,50 @@
 2025-04-15 11:52:16,047 - candidate_evaluation - WARNING - Attempting to extract JSON from text...
 2025-04-15 11:52:16,047 - candidate_evaluation - INFO - Successfully extracted and parsed JSON from text
 2025-04-15 11:52:16,047 - candidate_evaluation - INFO - Writing evaluation results to C:\Users\Acer\AppData\Local\Temp\ai_response_3647988928971335485.json
+2025-04-15 13:58:56,539 - candidate_evaluation - INFO - Reading candidate data from C:\Users\Acer\AppData\Local\Temp\candidate_data_13493822087287230119.json
+2025-04-15 13:58:56,540 - candidate_evaluation - INFO - Gemini AI API configured successfully
+2025-04-15 13:58:56,540 - candidate_evaluation - INFO - Found resume file at: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\f0234b36-4dcc-49f4-a9df-da7956bd46df.pdf
+2025-04-15 13:58:56,540 - candidate_evaluation - INFO - Uploading resume from path: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\f0234b36-4dcc-49f4-a9df-da7956bd46df.pdf
+2025-04-15 13:58:59,918 - candidate_evaluation - INFO - Successfully uploaded resume: files/5g9wuntb622i
+2025-04-15 13:58:59,918 - candidate_evaluation - INFO - Prepared evaluation prompt
+2025-04-15 13:58:59,918 - candidate_evaluation - INFO - Sending request to Gemini AI...
+2025-04-15 13:58:59,918 - candidate_evaluation - INFO - Trying model: models/gemini-2.0-flash
+2025-04-15 13:58:59,918 - candidate_evaluation - INFO - Sending request with resume to model: models/gemini-2.0-flash
+2025-04-15 13:59:05,754 - candidate_evaluation - INFO - Successfully used model: models/gemini-2.0-flash
+2025-04-15 13:59:05,754 - candidate_evaluation - INFO - Received response from Gemini AI
+2025-04-15 13:59:05,754 - candidate_evaluation - WARNING - Failed to parse response as JSON: Expecting value: line 1 column 1 (char 0)
+2025-04-15 13:59:05,754 - candidate_evaluation - WARNING - Attempting to extract JSON from text...
+2025-04-15 13:59:05,754 - candidate_evaluation - INFO - Successfully extracted and parsed JSON from text
+2025-04-15 13:59:05,754 - candidate_evaluation - INFO - Writing evaluation results to C:\Users\Acer\AppData\Local\Temp\ai_response_3947484382896769042.json
+2025-04-15 14:08:07,741 - candidate_evaluation - INFO - Reading candidate data from C:\Users\Acer\AppData\Local\Temp\candidate_data_1534162793632928783.json
+2025-04-15 14:08:07,742 - candidate_evaluation - INFO - Gemini AI API configured successfully
+2025-04-15 14:08:07,742 - candidate_evaluation - INFO - Evaluating for job application ID: 42
+2025-04-15 14:08:07,742 - candidate_evaluation - INFO - Found resume file at: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\f0234b36-4dcc-49f4-a9df-da7956bd46df.pdf
+2025-04-15 14:08:07,742 - candidate_evaluation - INFO - Uploading resume from path: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\f0234b36-4dcc-49f4-a9df-da7956bd46df.pdf
+2025-04-15 14:08:10,980 - candidate_evaluation - INFO - Successfully uploaded resume: files/ny880xwrnykg
+2025-04-15 14:08:10,980 - candidate_evaluation - INFO - Prepared evaluation prompt
+2025-04-15 14:08:10,980 - candidate_evaluation - INFO - Sending request to Gemini AI...
+2025-04-15 14:08:10,980 - candidate_evaluation - INFO - Trying model: models/gemini-2.0-flash
+2025-04-15 14:08:10,980 - candidate_evaluation - INFO - Sending request with resume to model: models/gemini-2.0-flash
+2025-04-15 14:08:16,284 - candidate_evaluation - INFO - Successfully used model: models/gemini-2.0-flash
+2025-04-15 14:08:16,285 - candidate_evaluation - INFO - Received response from Gemini AI
+2025-04-15 14:08:16,285 - candidate_evaluation - WARNING - Failed to parse response as JSON: Expecting value: line 1 column 1 (char 0)
+2025-04-15 14:08:16,285 - candidate_evaluation - WARNING - Attempting to extract JSON from text...
+2025-04-15 14:08:16,285 - candidate_evaluation - INFO - Successfully extracted and parsed JSON from text
+2025-04-15 14:08:16,285 - candidate_evaluation - INFO - Writing evaluation results to C:\Users\Acer\AppData\Local\Temp\ai_response_18043972153794157078.json
+2025-04-15 14:19:47,327 - candidate_evaluation - INFO - Reading candidate data from C:\Users\Acer\AppData\Local\Temp\candidate_data_17806868329527353915.json
+2025-04-15 14:19:47,328 - candidate_evaluation - INFO - Gemini AI API configured successfully
+2025-04-15 14:19:47,328 - candidate_evaluation - INFO - Evaluating for job application ID: 42
+2025-04-15 14:19:47,328 - candidate_evaluation - INFO - Found resume file at: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\f0234b36-4dcc-49f4-a9df-da7956bd46df.pdf
+2025-04-15 14:19:47,328 - candidate_evaluation - INFO - Uploading resume from path: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\f0234b36-4dcc-49f4-a9df-da7956bd46df.pdf
+2025-04-15 14:19:50,456 - candidate_evaluation - INFO - Successfully uploaded resume: files/tsjstf9lfsny
+2025-04-15 14:19:50,456 - candidate_evaluation - INFO - Prepared evaluation prompt
+2025-04-15 14:19:50,456 - candidate_evaluation - INFO - Sending request to Gemini AI...
+2025-04-15 14:19:50,456 - candidate_evaluation - INFO - Trying model: models/gemini-2.0-flash
+2025-04-15 14:19:50,456 - candidate_evaluation - INFO - Sending request with resume to model: models/gemini-2.0-flash
+2025-04-15 14:19:57,481 - candidate_evaluation - INFO - Successfully used model: models/gemini-2.0-flash
+2025-04-15 14:19:57,481 - candidate_evaluation - INFO - Received response from Gemini AI
+2025-04-15 14:19:57,482 - candidate_evaluation - WARNING - Failed to parse response as JSON: Expecting value: line 1 column 1 (char 0)
+2025-04-15 14:19:57,482 - candidate_evaluation - WARNING - Attempting to extract JSON from text...
+2025-04-15 14:19:57,482 - candidate_evaluation - INFO - Successfully extracted and parsed JSON from text
+2025-04-15 14:19:57,482 - candidate_evaluation - INFO - Writing evaluation results to C:\Users\Acer\AppData\Local\Temp\ai_response_13335626613543397721.json

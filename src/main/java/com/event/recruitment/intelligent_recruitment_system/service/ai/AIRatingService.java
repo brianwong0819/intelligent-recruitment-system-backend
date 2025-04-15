@@ -49,22 +49,50 @@ public class AIRatingService {
 
             CandidateAIEvaluationDataDTO evaluationData = dataResponse.getData();
 
+            // Get the first application ID from the group
+            if (evaluationData.getJobApplicationIds() == null || evaluationData.getJobApplicationIds().isEmpty()) {
+                return new Response<>(404, "No job applications found in this group", null);
+            }
+
+            Long jobApplicationId = evaluationData.getJobApplicationIds().get(0);
+
             // 2. Process the data with Gemini AI
             GeminiAIResponseDTO aiResponse = geminiAIService.evaluateCandidate(evaluationData);
 
             if (aiResponse.hasError()) {
                 log.error("Gemini AI evaluation failed: {}", aiResponse.getError());
-                // Use default ratings if AI evaluation fails
-                List<AIRating> fallbackRatings = processFallbackGroupEvaluation(evaluationData);
+                // Use default rating if AI evaluation fails
+                AIRatingRequestDTO fallbackRating = createFallbackRating(evaluationData, jobApplicationId);
+                fallbackRating.setAiFeedback(generateFallbackFeedback(evaluationData));
+
+                // Save the rating
+                Response<?> saveResponse = saveAIRating(fallbackRating);
+
+                if (saveResponse.getStatusCode() != 200) {
+                    return new Response<>(saveResponse.getStatusCode(),
+                            "Failed to save fallback AI rating: " + saveResponse.getMessage(), null);
+                }
+
                 return new Response<>(200,
                         "Candidate evaluated with fallback mechanism due to AI error: " + aiResponse.getError(),
-                        fallbackRatings);
+                        saveResponse.getData());
             }
 
-            // Process AI evaluations and save ratings
-            List<AIRating> savedRatings = processGroupEvaluationWithAI(evaluationData, aiResponse);
+            // Create rating from AI response for the first application only
+            AIRatingRequestDTO ratingRequest = AIRatingRequestDTO.fromGeminiResponse(jobApplicationId, aiResponse);
 
-            return new Response<>(200, "Candidate group applications evaluated successfully", savedRatings);
+            // Override with calculated values
+            updateRatingWithCalculatedValues(ratingRequest, evaluationData);
+
+            // Save the AI rating
+            Response<?> saveResponse = saveAIRating(ratingRequest);
+
+            if (saveResponse.getStatusCode() != 200) {
+                return new Response<>(saveResponse.getStatusCode(),
+                        "Failed to save AI rating: " + saveResponse.getMessage(), null);
+            }
+
+            return new Response<>(200, "Candidate application evaluated successfully", saveResponse.getData());
 
         } catch (Exception e) {
             log.error("Error evaluating candidate group: {}", e.getMessage(), e);
@@ -119,6 +147,8 @@ public class AIRatingService {
                 ratingRequest = createFallbackRating(evaluationData, jobApplicationId);
             } else {
                 ratingRequest = AIRatingRequestDTO.fromGeminiResponse(jobApplicationId, aiResponse);
+                // Override with calculated values
+                updateRatingWithCalculatedValues(ratingRequest, evaluationData);
             }
 
             // Save the AI rating results
@@ -156,6 +186,9 @@ public class AIRatingService {
                     // Create a rating for this application using AI response
                     AIRatingRequestDTO rating = AIRatingRequestDTO.fromGeminiResponse(appId, aiResponse);
 
+                    // Override with calculated values
+                    updateRatingWithCalculatedValues(rating, evaluationData);
+
                     // Save the rating
                     Response<?> saveResponse = saveAIRating(rating);
 
@@ -169,6 +202,69 @@ public class AIRatingService {
                 })
                 .filter(rating -> rating != null)
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Update rating request with calculated values instead of AI-provided values
+     *
+     * @param ratingRequest The rating request to update
+     * @param evaluationData The evaluation data
+     */
+    private void updateRatingWithCalculatedValues(
+            AIRatingRequestDTO ratingRequest,
+            CandidateAIEvaluationDataDTO evaluationData) {
+
+        // 1. Use distanceToCandidate directly as locationScore
+        if (evaluationData.getDistanceToCandidate() != null) {
+            ratingRequest.setLocationScore(evaluationData.getDistanceToCandidate());
+        }
+
+        // 2. Calculate availability score based on work days ratio
+        double availabilityScore = calculateAvailabilityScore(evaluationData);
+        ratingRequest.setAvailabilityScore(availabilityScore);
+
+        // 3. Use reputation score directly from data
+        if (evaluationData.getReputationScore() != null) {
+            ratingRequest.setReputationScore(evaluationData.getReputationScore());
+        }
+
+        // 4. Calculate final score as aiModelScore + reputationScore
+        double finalScore = ratingRequest.getAiModelScore() +
+                (ratingRequest.getReputationScore() != null ? ratingRequest.getReputationScore() : 0);
+        ratingRequest.setFinalScore(finalScore);
+    }
+
+    /**
+     * Calculate availability score based on work days ratio and job requirements
+     *
+     * @param evaluationData The evaluation data
+     * @return The calculated availability score
+     */
+    private double calculateAvailabilityScore(CandidateAIEvaluationDataDTO evaluationData) {
+        double availabilityScore = 5.0; // Default score
+
+        // Calculate based on ratio of totalWorkDays/totalJobWorkingDays
+        if (evaluationData.getTotalJobWorkingDays() != null && evaluationData.getTotalJobWorkingDays() > 0
+                && evaluationData.getTotalWorkDays() != null) {
+            double ratio = (double) evaluationData.getTotalWorkDays() / evaluationData.getTotalJobWorkingDays();
+            availabilityScore = Math.min(10.0, ratio * 10.0); // Scale to 10
+        }
+
+        // Check job requirements for commitment mentions
+        String jobRequirements = evaluationData.getJobRequirements();
+        if (jobRequirements != null &&
+                (jobRequirements.toLowerCase().contains("commit") ||
+                        jobRequirements.toLowerCase().contains("full") ||
+                        jobRequirements.toLowerCase().contains("all days"))) {
+            // Increase weight for commitment requirements
+            if (availabilityScore >= 8.0) {
+                availabilityScore = 10.0; // Full points for high availability with commitment requirement
+            } else {
+                availabilityScore += 1.0; // Add bonus point for partial availability
+            }
+        }
+
+        return Math.min(10.0, Math.max(1.0, availabilityScore)); // Ensure score is between 1-10
     }
 
     /**
@@ -303,27 +399,24 @@ public class AIRatingService {
     private AIRatingRequestDTO createFallbackRating(CandidateAIEvaluationDataDTO evaluationData, Long applicationId) {
         // Calculate scores based on available data
         double experienceScore = evaluationData.getExperiences() != null && !evaluationData.getExperiences().isEmpty() ? 7.5 : 5.0;
+
+        // Use distance directly as location score
         double locationScore = evaluationData.getDistanceToCandidate() != null ?
-                (evaluationData.getDistanceToCandidate() < 10 ? 9.0 : 6.0) : 5.0;
+                evaluationData.getDistanceToCandidate() : 10.0;
 
-        // Calculate availability score based on matching dates
-        double availabilityScore = 8.5;
-        if ("CUSTOM_DATES".equals(evaluationData.getAvailabilityType())) {
-            if (evaluationData.getAvailableDates() != null && !evaluationData.getAvailableDates().isEmpty()) {
-                // Count matching dates
-                long matchingDates = evaluationData.getAppliedWorkDates().stream()
-                        .filter(workDate -> evaluationData.getAvailableDates().contains(workDate))
-                        .count();
+        // Calculate availability score
+        double availabilityScore = calculateAvailabilityScore(evaluationData);
 
-                double matchPercentage = (double) matchingDates / evaluationData.getAppliedWorkDates().size();
-                availabilityScore = 5.0 + (matchPercentage * 5.0); // Scale from 5-10 based on match percentage
-            } else {
-                availabilityScore = 5.0; // Lower score if no specific dates are provided
-            }
-        }
+        // Get AI model score
+        double aiModelScore = (experienceScore + 7.0 + 6.5) / 3.0; // Average of experience, skills (7.0) and resume (6.5)
+        aiModelScore = Math.min(10.0, Math.max(1.0, aiModelScore)); // Ensure score is between 1-10
 
-        double finalScore = (experienceScore + locationScore + availabilityScore) / 3.0;
-        finalScore = Math.min(10.0, Math.max(1.0, finalScore)); // Ensure score is between 1-10
+        // Use reputation score from data
+        double reputationScore = evaluationData.getReputationScore() != null ?
+                evaluationData.getReputationScore() : 100.0;
+
+        // Calculate final score
+        double finalScore = aiModelScore + reputationScore;
 
         String feedback = "System generated assessment for job application ID " + applicationId +
                 " (AI evaluation service unavailable)";
@@ -335,8 +428,8 @@ public class AIRatingService {
                 .locationScore(locationScore)
                 .availabilityScore(availabilityScore)
                 .resumeScore(6.5)     // Default score for resume
-                .reputationScore(7.5) // Default reputation score
-                .aiModelScore(finalScore - 0.2)    // Slightly lower than final score
+                .reputationScore(reputationScore) // Use value from data
+                .aiModelScore(aiModelScore)    // Average of available scores
                 .finalScore(finalScore)      // Combined score
                 .aiFeedback(feedback)
                 .build();

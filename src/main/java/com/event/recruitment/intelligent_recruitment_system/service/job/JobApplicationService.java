@@ -15,6 +15,7 @@ import com.event.recruitment.intelligent_recruitment_system.repository.job.JobAp
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobLocationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobScheduleDateRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
+import com.event.recruitment.intelligent_recruitment_system.service.ai.AIRatingService;
 import com.event.recruitment.intelligent_recruitment_system.service.email.EmailService;
 import com.event.recruitment.intelligent_recruitment_system.service.location.LocationService;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +44,8 @@ public class JobApplicationService {
     private final CandidateRepository candidateRepository;
     private final SecurityUtil securityUtil;
     private final EmailService emailService;
-    private final LocationService locationService; // Added LocationService
+    private final LocationService locationService;
+    private final AIRatingService aiRatingService; // Added AIRatingService
     private JobSummaryResponseDTO jobSummary;
 
     @Transactional
@@ -126,18 +128,47 @@ public class JobApplicationService {
             // Convert to response DTO
             JobApplicationResponseDTO responseDTO = convertToGroupResponseDTO(savedApplications);
 
-            // Schedule the distance calculation for later
             // Store necessary IDs for the background task rather than entities
             final List<Long> applicationIds = savedApplications.stream()
                     .map(JobApplication::getId)
                     .collect(Collectors.toList());
             final Long candidateId = candidate.getId();
+            // Store applicationGroupId for AI evaluation
+            final String finalApplicationGroupId = applicationGroupId;
 
+            // Schedule the distance calculation for later and chain the AI evaluation
             CompletableFuture.runAsync(() -> {
                 try {
+                    // First update distances in a new transaction
                     updateApplicationDistancesInNewTransaction(applicationIds, candidateId);
+
+                    // After distance calculation is done, run AI evaluation in the background
+                    // Wait a short time to ensure distance updates are committed
+                    Thread.sleep(500);
+
+                    // Run AI evaluation by group ID
+                    try {
+                        log.info("Starting AI evaluation for application group: {}", finalApplicationGroupId);
+                        Response<?> evaluationResponse = aiRatingService.evaluateByGroupId(finalApplicationGroupId);
+
+                        if (evaluationResponse.getStatusCode() != 200) {
+                            log.warn("AI evaluation completed with non-success status: {} - {}",
+                                    evaluationResponse.getStatusCode(), evaluationResponse.getMessage());
+                        } else {
+                            log.info("AI evaluation completed successfully for group: {}", finalApplicationGroupId);
+                        }
+                    } catch (Exception e) {
+                        log.error("Error in AI evaluation for group {}: {}", finalApplicationGroupId, e.getMessage(), e);
+                        // Don't rethrow - we want to keep this contained and not affect the user experience
+                    }
                 } catch (Exception e) {
                     log.error("Error in async distance calculation: {}", e.getMessage(), e);
+                    // Even if distance calculation fails, try AI evaluation with whatever data we have
+                    try {
+                        aiRatingService.evaluateByGroupId(finalApplicationGroupId);
+                    } catch (Exception ex) {
+                        log.error("Error in fallback AI evaluation: {}", ex.getMessage(), ex);
+                    }
                 }
             });
 
@@ -225,12 +256,9 @@ public class JobApplicationService {
         }
     }
 
-    /**
-     * Calculate the distance between a candidate's preferred location and a job location
-     * @param candidate The candidate who is applying
-     * @param jobLocation The location of the job
-     * @return The distance in kilometers, or null if candidate has no preferred location
-     */
+    // Rest of the existing methods remain unchanged...
+
+    // Existing methods from the original class...
     private Double calculateDistanceToCandidateLocation(Candidates candidate, Location jobLocation) {
         // If candidate doesn't have a preferred location, return null
         if (candidate.getPreferredLocation() == null) {

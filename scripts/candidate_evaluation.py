@@ -64,87 +64,6 @@ def get_full_resume_path(resume_url, base_dir="."):
     logger.info(f"Found resume file at: {resume_path}")
     return resume_path
 
-def prepare_evaluation_prompt(candidate_data, resume_file=None):
-    """
-    Prepare the prompt for Gemini AI based on candidate data.
-
-    Args:
-        candidate_data: The candidate data dictionary
-        resume_file: The uploaded resume file object or None
-
-    Returns:
-        The prompt text
-    """
-    # Create a structured prompt for the AI
-    prompt = f"""
-You are an expert AI recruitment assistant for an event staffing company. Your task is to evaluate a candidate's suitability for a job position based on the following data and resume:
-
-JOB DETAILS:
-- Job Title: {candidate_data.get('jobTitle', 'N/A')}
-- Job Type: {candidate_data.get('jobTitleType', 'N/A')}
-- Job Requirements: {candidate_data.get('jobRequirements', 'N/A')}
-- Job Scope: {candidate_data.get('jobScope', 'N/A')}
-- Work Dates: {', '.join(candidate_data.get('appliedWorkDates', ['N/A']))}
-- Total Work Days: {candidate_data.get('totalWorkDays', 'N/A')}
-- Locations: {', '.join(candidate_data.get('locationNames', ['N/A']))}
-
-CANDIDATE DETAILS:
-- Name: {candidate_data.get('candidateName', 'N/A')}
-- Gender: {candidate_data.get('gender', 'N/A')}
-- Employment Status: {candidate_data.get('employmentStatus', 'N/A')}
-- Languages: {', '.join(candidate_data.get('languages', ['N/A']))}
-- Bio: {candidate_data.get('bio', 'N/A')}
-
-EXPERIENCE:
-{format_experience(candidate_data.get('experiences', []))}
-
-AVAILABILITY:
-- Availability Type: {candidate_data.get('availabilityType', 'N/A')}
-- Available Dates: {', '.join(candidate_data.get('availableDates', ['N/A']))}
-
-LOCATION:
-- Distance to Job: {candidate_data.get('distanceToCandidate', 'N/A')} km
-
-"""
-
-    # Add resume note to the prompt
-    if resume_file is None:
-        prompt += "NO RESUME AVAILABLE: The candidate has not provided a resume.\n\n"
-    else:
-        prompt += "RESUME: I've been provided with the candidate's resume as a PDF file which I'll analyze.\n\n"
-
-    prompt += """
-Using all the above information, please evaluate this candidate and provide scores on a scale of 1.0 to 10.0 in the following categories:
-1. Experience Score: How well the candidate's experience matches the job requirements
-2. Skills Score: The candidate's overall skills and capabilities for this role
-3. Location Score: Convenience of the job location for the candidate
-4. Availability Score: How well the candidate's availability matches the job schedule
-5. Resume Score: The strength of the candidate's overall profile and resume quality
-6. Reputation Score: Assumed reputation based on experience and profile (default to 7.5 if unclear)
-
-Then calculate:
-- AI Model Score: Your assessment of the overall fit (weighted average)
-- Final Score: The final recommendation score
-
-Also provide a detailed feedback paragraph explaining your evaluation.
-
-Return ONLY a JSON object with the following structure:
-{
-  "experienceScore": (float between 1.0-10.0),
-  "skillsScore": (float between 1.0-10.0),
-  "locationScore": (float between 1.0-10.0),
-  "availabilityScore": (float between 1.0-10.0),
-  "resumeScore": (float between 1.0-10.0),
-  "reputationScore": (float between 1.0-10.0),
-  "aiModelScore": (float between 1.0-10.0),
-  "finalScore": (float between 1.0-10.0),
-  "feedback": (detailed explanation of your evaluation)
-}
-
-DO NOT include any other text before or after the JSON.
-"""
-    return prompt
-
 def format_experience(experiences):
     """Format the experiences list for the prompt."""
     if not experiences:
@@ -157,6 +76,130 @@ def format_experience(experiences):
         formatted.append(f"- Experience {idx}: {job_type} - {description}")
 
     return "\n".join(formatted)
+
+def prepare_evaluation_prompt(candidate_data, resume_file=None):
+    """Prepare the prompt for Gemini AI based on candidate data."""
+    # Create a structured prompt for the AI
+    prompt = f"""
+You are an expert AI recruitment assistant for an event staffing company specializing in part-time and temporary event positions. Your task is to evaluate a candidate's suitability based on specific job requirements and candidate qualifications. Your evaluation must be:
+- Objective and evidence-based, using only the provided information
+- Consistent across all candidates (maintaining the same evaluation standards)
+- Fair and unbiased toward all demographics
+- Precisely aligned with the exact job requirements
+
+JOB DETAILS:
+- Job Title: {candidate_data.get('jobTitle', 'N/A')}
+- Job Type: {candidate_data.get('jobTitleType', 'N/A')}
+- Job Requirements: {candidate_data.get('jobRequirements', 'N/A')}
+- Job Scope: {candidate_data.get('jobScope', 'N/A')}
+- Work Dates: {', '.join(candidate_data.get('appliedWorkDates', ['N/A']))}
+- Total Work Days: {candidate_data.get('totalWorkDays', 'N/A')}
+- Total Job Working Days: {candidate_data.get('totalJobWorkingDays', 'N/A')}
+- Locations: {', '.join(candidate_data.get('locationNames', ['N/A']))}
+
+CANDIDATE DETAILS:
+- Name: {candidate_data.get('candidateName', 'N/A')}
+- Gender: {candidate_data.get('gender', 'N/A')}
+- Employment Status: {candidate_data.get('employmentStatus', 'N/A')}
+- Languages: {', '.join(candidate_data.get('languages', ['N/A']))}
+- Bio: {candidate_data.get('bio', 'N/A')}
+
+EXPERIENCE:
+{format_experience(candidate_data.get('experiences', []))}
+
+LOCATION:
+- Distance to Job: {candidate_data.get('distanceToCandidate', 'N/A')} km
+"""
+
+    # Add resume note to the prompt
+    if resume_file is None:
+        prompt += "NO RESUME AVAILABLE: The candidate has not provided a resume.\n\n"
+    else:
+        prompt += "RESUME: I've been provided with the candidate's resume as a PDF file which I'll analyze.\n\n"
+
+    prompt += """
+EVALUATION INSTRUCTIONS:
+
+Step 1: Analyze the job requirements thoroughly, identifying KEY requirements including:
+- Essential skills and qualifications
+- Experience requirements
+- Demographic requirements (if explicitly stated in requirements)
+- Language requirements
+- Commitment requirements (check if the job requires "full commitment" or similar phrases)
+- Any other critical specifications
+
+Step 2: Evaluate the candidate against each requirement systematically.
+
+Step 3: Assign scores on a scale of 1.0 to 10.0 in these categories:
+
+1. Experience Score (1.0-10.0):
+   - Direct match between candidate's experience and job requirements
+   - Score 1.0-3.9: Minimal relevant experience
+   - Score 4.0-6.9: Some relevant experience but gaps in key areas
+   - Score 7.0-8.9: Good match with most experience requirements
+   - Score 9.0-10.0: Excellent match with all experience requirements
+
+2. Skills Score (1.0-10.0):
+   - Overall capabilities for this specific role
+   - Score 1.0-3.9: Few relevant skills
+   - Score 4.0-6.9: Some relevant skills but missing important ones
+   - Score 7.0-8.9: Good match with most skill requirements
+   - Score 9.0-10.0: Excellent match with all skill requirements
+
+3. Resume Score (1.0-10.0):
+   - Overall profile strength relative to position
+   - Score 1.0-3.9: Weak profile for this role
+   - Score 4.0-6.9: Moderate fit with position
+   - Score 7.0-8.9: Strong profile for this role
+   - Score 9.0-10.0: Exceptional profile for this role
+
+4. AI Model Score (1.0-10.0):
+   - Base score: Weighted average of above scores
+   - IMPORTANT ADJUSTMENTS:
+     - Full Commitment Check: If job requirements mention "prefer full commitment" or similar phrases:
+       - Add 1.5 points if candidate is applying for ALL available work days (totalWorkDays = totalJobWorkingDays)
+       - Subtract 1.5 points if candidate is NOT applying for all available work days
+     - Bio Relevance: If candidate's bio mentions specific elements that match job scope or requirements, add 0.5 points
+     - Any disqualifying factors (e.g., inability to meet explicit requirements like gender or language)
+   - If there are explicit requirements the candidate doesn't meet, the AI Model Score should be substantially lower to reflect this
+
+Step 4: CRITICAL - Review each score for fairness and consistency:
+- Re-examine your reasoning for each score
+- Ensure scores accurately reflect the match between requirements and qualifications
+- Check that you haven't introduced any unconscious bias
+- Verify scores are aligned with the scoring guidance
+
+Return ONLY a JSON object with the following structure:
+{
+  "experienceScore": (float between 1.0-10.0),
+  "skillsScore": (float between 1.0-10.0),
+  "resumeScore": (float between 1.0-10.0),
+  "aiModelScore": (float between 1.0-10.0),
+  "feedback": "Your comprehensive feedback string with multiple sections separated by \\n\\n"
+}
+
+Your feedback should include these sections, clearly labeled and separated by blank lines (\\n\\n):
+1. KEY REQUIREMENTS: List of key job requirements identified
+2. EXPERIENCE ANALYSIS: Detailed explanation of experience score with specific examples
+3. SKILLS ANALYSIS: Detailed explanation of skills score with specific examples
+4. RESUME ANALYSIS: Detailed explanation of resume score with specific examples
+5. COMMITMENT ANALYSIS: Analysis of candidate's commitment level relative to job requirements
+6. BIO RELEVANCE: Analysis of how candidate's bio relates to job requirements (if relevant)
+7. KEY STRENGTHS: 3-5 key strengths for this position
+8. DEVELOPMENT AREAS: 3-5 areas of potential improvement
+9. OVERALL ASSESSMENT: Final comprehensive evaluation
+
+Within each section, use line breaks (\\n) to separate points. Make sure your feedback:
+1. Directly connects to specific job requirements
+2. Cites specific examples from candidate information
+3. Is actionable and specific
+4. Clearly explains any significant score impacts (especially low scores)
+5. EXPLICITLY explains any score adjustments for commitment level or bio relevance
+
+Do NOT include locationScore, availabilityScore, reputationScore, or finalScore as these will be calculated separately.
+DO NOT include any text before or after the JSON object.
+"""
+    return prompt
 
 def try_models_sequentially(prompt, resume_file=None):
     """
@@ -203,13 +246,23 @@ def evaluate_candidate(api_key, candidate_data, base_dir="."):
         base_dir: Base directory for finding resume files
 
     Returns:
-        Dictionary containing evaluation scores and feedback
+        Dictionary containing evaluation scores and feedback for a single job application
     """
     # Configure the API
     if not configure_genai_api(api_key):
         return {"error": "Failed to configure API"}
 
     try:
+        # Extract a single job application ID if we have multiple
+        job_application_id = None
+        if 'jobApplicationIds' in candidate_data and candidate_data['jobApplicationIds']:
+            # Use the first application ID from the group
+            job_application_id = candidate_data['jobApplicationIds'][0]
+        elif 'jobApplicationId' in candidate_data:
+            job_application_id = candidate_data['jobApplicationId']
+
+        logger.info(f"Evaluating for job application ID: {job_application_id}")
+
         # Check for resume
         resume_file = None
         resume_path = None
@@ -243,6 +296,11 @@ def evaluate_candidate(api_key, candidate_data, base_dir="."):
             # Try to parse the response text as JSON
             result = json.loads(response.text)
             logger.info("Successfully parsed response as JSON")
+
+            # Add the job application ID to the result
+            if job_application_id is not None:
+                result['jobApplicationId'] = job_application_id
+
             return result
         except json.JSONDecodeError as e:
             # If parsing fails, try to extract JSON from the text
@@ -258,6 +316,11 @@ def evaluate_candidate(api_key, candidate_data, base_dir="."):
                 json_str = response_text[start_idx:end_idx]
                 try:
                     result = json.loads(json_str)
+
+                    # Add the job application ID to the result
+                    if job_application_id is not None:
+                        result['jobApplicationId'] = job_application_id
+
                     logger.info("Successfully extracted and parsed JSON from text")
                     return result
                 except json.JSONDecodeError:

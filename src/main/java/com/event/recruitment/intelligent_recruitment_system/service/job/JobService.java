@@ -545,6 +545,7 @@ public class JobService {
                 .status(job.getStatus())
                 .createdAt(job.getCreatedAt())
                 // Add company/recruiter information
+                .recruiterId(job.getProject().getRecruiter().getId())
                 .companyName(companyName)
                 .companyLogoUrl(job.getProject().getRecruiter().getCompanyLogoUrl())
                 .recruiterType(recruiterType)

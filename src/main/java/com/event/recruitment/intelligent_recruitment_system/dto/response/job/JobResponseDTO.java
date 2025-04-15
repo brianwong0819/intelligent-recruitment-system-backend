@@ -35,6 +35,7 @@ public class JobResponseDTO {
     private LocalDateTime createdAt;
 
     // Company/recruiter information
+    private Long recruiterId;
     private String companyName;
     private String companyLogoUrl;
     private RecruiterType recruiterType;
