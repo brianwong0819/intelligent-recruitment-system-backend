@@ -22,8 +22,7 @@ logger = logging.getLogger("candidate_evaluation")
 MODEL_NAMES = [
     "models/gemini-2.0-flash",
     "models/gemini-1.5-pro",
-    "gemini-1.5-pro",
-    "gemini-pro"
+    "models/gemini-1.5-flash"
 ]
 
 def configure_genai_api(api_key):
