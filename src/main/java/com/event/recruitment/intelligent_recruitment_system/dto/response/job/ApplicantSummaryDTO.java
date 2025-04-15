@@ -49,6 +49,8 @@ public class ApplicantSummaryDTO {
     // Group ID for linked applications
     private String applicationGroupId;
 
+    private String notes;
+
     // Reason for withdrawal (if applicable)
     private String withdrawalReason;
 }

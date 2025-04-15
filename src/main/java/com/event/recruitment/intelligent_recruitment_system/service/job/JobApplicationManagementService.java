@@ -12,12 +12,10 @@ import com.event.recruitment.intelligent_recruitment_system.model.entity.recruit
 import com.event.recruitment.intelligent_recruitment_system.repository.ai.AIRatingRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobApplicationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobRepository;
-import com.event.recruitment.intelligent_recruitment_system.repository.recruiter.ProjectRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -36,7 +34,6 @@ public class JobApplicationManagementService {
 
     private final JobRepository jobRepository;
     private final JobApplicationRepository jobApplicationRepository;
-    private final ProjectRepository projectRepository;
     private final AIRatingRepository aiRatingRepository;
     private final SecurityUtil securityUtil;
 
@@ -260,6 +257,7 @@ public class JobApplicationManagementService {
                             .aiFeedback(aiFeedback)
                             .distanceToJob(primaryApp.getDistanceToCandidate())
                             .applicationGroupId(groupId.startsWith("single_") ? null : groupId)
+                            .notes(primaryApp.getNotes())
                             .withdrawalReason(primaryApp.getWithdrawalReason())
                             .build();
 
@@ -283,221 +281,6 @@ public class JobApplicationManagementService {
             log.error("Error retrieving job applicants: {}", e.getMessage(), e);
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Error retrieving job applicants: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * Get detailed information about a specific applicant
-     * @param applicationId The application ID
-     * @return Response with detailed applicant information
-     */
-    public Response<ApplicantSummaryDTO> getApplicantDetails(Long applicationId) {
-        try {
-            // Get current recruiter's username
-            String username = securityUtil.getCurrentUsername();
-
-            // Find the application with full details
-            Optional<JobApplication> applicationOpt = jobApplicationRepository.findByIdWithFullDetails(applicationId);
-            if (applicationOpt.isEmpty()) {
-                return new Response<>(HttpStatus.NOT_FOUND.value(),
-                        "Application not found", null);
-            }
-
-            JobApplication application = applicationOpt.get();
-            Jobs job = application.getJobLocation().getJob();
-            Projects project = job.getProject();
-            Recruiters jobRecruiter = project.getRecruiter();
-
-            // Security check - ensure the job belongs to the current recruiter
-            if (!jobRecruiter.getUsername().equals(username)) {
-                return new Response<>(HttpStatus.FORBIDDEN.value(),
-                        "You do not have permission to view this applicant", null);
-            }
-
-            // Get the group ID to find all related applications
-            String groupId = application.getApplicationGroupId();
-            List<JobApplication> relatedApplications;
-
-            if (groupId != null && !groupId.isEmpty()) {
-                // Get all applications in the same group with full details
-                relatedApplications = jobApplicationRepository.findByApplicationGroupIdWithFullDetails(groupId);
-            } else {
-                // Single application
-                relatedApplications = List.of(application);
-            }
-
-            // Collect unique location names with dates for each application
-            Map<String, Set<LocalDateTime>> locationDatesMap = new LinkedHashMap<>();
-
-            for (JobApplication app : relatedApplications) {
-                JobLocation jobLocation = app.getJobLocation();
-                String locationName = jobLocation.getLocation().getName();
-
-                // Get work date from schedule date if available
-                LocalDateTime workDate = getWorkDateForJobLocation(jobLocation);
-
-                // Use computeIfAbsent to create a new Set if the location doesn't exist
-                locationDatesMap.computeIfAbsent(locationName, k -> new LinkedHashSet<>()).add(workDate);
-            }
-
-            // Convert Set of dates to a map with sorted dates for each location
-            Map<String, List<LocalDateTime>> flattenedLocationDatesMap = locationDatesMap.entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry -> entry.getValue().stream()
-                                    .sorted()
-                                    .collect(Collectors.toList())
-                    ));
-
-            // Convert to a list of location names
-            List<String> locationNames = new ArrayList<>(flattenedLocationDatesMap.keySet());
-
-            // Get AI Rating
-            Optional<AIRating> aiRatingOpt;
-            if (groupId != null && !groupId.isEmpty()) {
-                // Try to find by group ID first
-                aiRatingOpt = aiRatingRepository.findFirstByApplicationGroupId(groupId);
-                if (aiRatingOpt.isEmpty()) {
-                    // Fallback to application ID
-                    aiRatingOpt = aiRatingRepository.findByJobApplicationId(application.getId());
-                }
-            } else {
-                aiRatingOpt = aiRatingRepository.findByJobApplicationId(application.getId());
-            }
-
-            BigDecimal finalScore = aiRatingOpt
-                    .map(AIRating::getFinalScore)
-                    .orElse(BigDecimal.ZERO);
-
-            BigDecimal experienceScore = aiRatingOpt
-                    .map(AIRating::getExperienceScore)
-                    .orElse(null);
-
-            BigDecimal skillsScore = aiRatingOpt
-                    .map(AIRating::getSkillsScore)
-                    .orElse(null);
-
-            BigDecimal locationScore = aiRatingOpt
-                    .map(AIRating::getLocationScore)
-                    .orElse(null);
-
-            BigDecimal availabilityScore = aiRatingOpt
-                    .map(AIRating::getAvailabilityScore)
-                    .orElse(null);
-
-            BigDecimal resumeScore = aiRatingOpt
-                    .map(AIRating::getResumeScore)
-                    .orElse(null);
-
-            BigDecimal reputationScore = aiRatingOpt
-                    .map(AIRating::getReputationScore)
-                    .orElse(null);
-
-            String aiFeedback = aiRatingOpt
-                    .map(AIRating::getAiFeedback)
-                    .orElse(null);
-
-            // Build the detailed applicant summary
-            ApplicantSummaryDTO applicantDetails = ApplicantSummaryDTO.builder()
-                    .id(application.getId())
-                    .candidateId(application.getCandidate().getId())
-                    .candidateName(application.getCandidate().getName())
-                    .email(application.getCandidate().getEmail())
-                    .phoneNumber(application.getCandidate().getPhoneNumber())
-                    .profilePictureUrl(application.getCandidate().getProfilePictureUrl())
-                    .gender(application.getCandidate().getGender().toString())
-                    .applicationStatus(application.getApplicationStatus().toString())
-                    .applicationDate(application.getApplicationDate())
-                    .locationNames(locationNames)
-                    .locationWorkDates(flattenedLocationDatesMap) // Updated to use the new map type
-                    .finalScore(finalScore)
-                    .experienceScore(experienceScore)
-                    .skillsScore(skillsScore)
-                    .locationScore(locationScore)
-                    .availabilityScore(availabilityScore)
-                    .resumeScore(resumeScore)
-                    .reputationScore(reputationScore)
-                    .aiFeedback(aiFeedback)
-                    .distanceToJob(application.getDistanceToCandidate())
-                    .applicationGroupId(application.getApplicationGroupId())
-                    .withdrawalReason(application.getWithdrawalReason())
-                    .build();
-
-            return new Response<>(HttpStatus.OK.value(),
-                    "Retrieved applicant details successfully", applicantDetails);
-
-        } catch (Exception e) {
-            log.error("Error retrieving applicant details: {}", e.getMessage(), e);
-            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Error retrieving applicant details: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * Update the status of a job application
-     * @param applicationId The application ID
-     * @param status The new status
-     * @return Response indicating success or failure
-     */
-    @Transactional
-    public Response<?> updateApplicationStatus(Long applicationId, String status) {
-        try {
-            // Get current recruiter's username
-            String username = securityUtil.getCurrentUsername();
-
-            // Find the application with full details
-            Optional<JobApplication> applicationOpt = jobApplicationRepository.findByIdWithFullDetails(applicationId);
-            if (applicationOpt.isEmpty()) {
-                return new Response<>(HttpStatus.NOT_FOUND.value(),
-                        "Application not found", null);
-            }
-
-            JobApplication application = applicationOpt.get();
-            Jobs job = application.getJobLocation().getJob();
-            Projects project = job.getProject();
-            Recruiters jobRecruiter = project.getRecruiter();
-
-            // Security check - ensure the job belongs to the current recruiter
-            if (!jobRecruiter.getUsername().equals(username)) {
-                return new Response<>(HttpStatus.FORBIDDEN.value(),
-                        "You do not have permission to update this application", null);
-            }
-
-            // Validate status
-            JobApplication.ApplicationStatus newStatus;
-            try {
-                newStatus = JobApplication.ApplicationStatus.valueOf(status.toUpperCase());
-            } catch (IllegalArgumentException e) {
-                return new Response<>(HttpStatus.BAD_REQUEST.value(),
-                        "Invalid application status: " + status, null);
-            }
-
-            // Update application status
-            application.setApplicationStatus(newStatus);
-
-            // If hiring, set hired date
-            if (newStatus == JobApplication.ApplicationStatus.HIRED) {
-                application.setHiredDate(LocalDateTime.now());
-
-                // Increment positions filled in job location
-                JobApplication.ApplicationStatus oldStatus = application.getApplicationStatus();
-                if (oldStatus != JobApplication.ApplicationStatus.HIRED) {
-                    // Only increment if not already hired
-                    application.getJobLocation().setPositionsFilled(
-                            application.getJobLocation().getPositionsFilled() + 1);
-                }
-            }
-
-            // Save application
-            jobApplicationRepository.save(application);
-
-            return new Response<>(HttpStatus.OK.value(),
-                    "Application status updated successfully", null);
-
-        } catch (Exception e) {
-            log.error("Error updating application status: {}", e.getMessage(), e);
-            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Error updating application status: " + e.getMessage(), null);
         }
     }
 

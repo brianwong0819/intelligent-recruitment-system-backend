@@ -133,11 +133,15 @@ Step 2: Evaluate the candidate against each requirement systematically.
 Step 3: Assign scores on a scale of 1.0 to 10.0 in these categories:
 
 1. Experience Score (1.0-10.0):
-   - Direct match between candidate's experience and job requirements
-   - Score 1.0-3.9: Minimal relevant experience
-   - Score 4.0-6.9: Some relevant experience but gaps in key areas
-   - Score 7.0-8.9: Good match with most experience requirements
-   - Score 9.0-10.0: Excellent match with all experience requirements
+   - YOU MUST COUNT THE EXACT NUMBER of relevant experiences that directly match the job requirements
+   - NO ASSUMPTIONS allowed about number of experiences beyond what is explicitly mentioned
+   - Score assignment MUST follow these exact rules:
+     * Score 1.0-3.9: Minimal relevant experience (0 relevant experiences)
+     * Score 4.0-6.9: Some relevant experience but gaps in key areas (1-3 relevant experiences)
+     * Score 7.0-8.9: Good match with most experience requirements (4-6 relevant experiences)
+     * Score 9.0-10.0: Excellent match with all experience requirements (7+ relevant experiences)
+   - Example: If a candidate has ONE promoter experience and the job is for a promoter, the score MUST be between 4.0-6.9
+   - You must explicitly count and state the number of relevant experiences found
 
 2. Skills Score (1.0-10.0):
    - Overall capabilities for this specific role
@@ -147,6 +151,7 @@ Step 3: Assign scores on a scale of 1.0 to 10.0 in these categories:
    - Score 9.0-10.0: Excellent match with all skill requirements
 
 3. Resume Score (1.0-10.0):
+   - If no resume is provided, assign a score of 0
    - Overall profile strength relative to position
    - Score 1.0-3.9: Weak profile for this role
    - Score 4.0-6.9: Moderate fit with position
@@ -156,14 +161,20 @@ Step 3: Assign scores on a scale of 1.0 to 10.0 in these categories:
 4. AI Model Score (1.0-10.0):
    - Base score: Weighted average of above scores
    - IMPORTANT ADJUSTMENTS:
-     - Full Commitment Check: If job requirements mention "prefer full commitment" or similar phrases:
+     - Full Commitment Check:
        - Compare candidate's applied work days (`Total Work Days`) with job's total required days (`Total Job Working Days`)
-       - If Total Work Days = Total Job Working Days, add **maximum of +1.5 points**
-       - If Total Work Days < Total Job Working Days, deduct points proportionally:
-         - Example formula:
+       - If job requirements explicitly mention "prefer full commitment" or similar phrases:
+         - If Total Work Days = Total Job Working Days, add **maximum of +1.5 points**
+         - If Total Work Days < Total Job Working Days:
            - commitment_ratio = Total Work Days / Total Job Working Days
            - penalty = (1 - commitment_ratio) * 1.5
-           - Final adjustment = +1.5 (if full) or -penalty (if partial)
+           - adjustment = -penalty (if partial)
+       - If job requirements do NOT mention commitment expectations:
+         - If Total Work Days = Total Job Working Days, add **maximum of +0.3 points**
+         - If Total Work Days < Total Job Working Days:
+           - commitment_ratio = Total Work Days / Total Job Working Days
+           - penalty = (1 - commitment_ratio) * 0.3
+           - adjustment = -penalty (if partial)
      - Bio Relevance: If candidate's bio mentions specific elements that match job scope or requirements, add 0.5 points
      - Any disqualifying factors (e.g., inability to meet explicit requirements like gender or language)
    - If there are explicit requirements the candidate doesn't meet, the AI Model Score should be substantially lower to reflect this

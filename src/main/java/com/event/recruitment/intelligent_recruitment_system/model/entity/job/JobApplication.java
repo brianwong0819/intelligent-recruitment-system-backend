@@ -79,6 +79,7 @@ public class JobApplication {
         SHORTLISTED,
         HIRED,
         REJECTED,
+        CANCELLED,
         WITHDRAWN,
         BACKUP,
         COMPLETED

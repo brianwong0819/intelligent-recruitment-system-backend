@@ -94,48 +94,6 @@ public class JobApplicationManagementController {
     }
 
     /**
-     * Get detailed information about an applicant
-     * @param applicationId The application ID
-     * @return Detailed applicant information
-     */
-    @GetMapping("/applications/{applicationId}")
-    public ResponseEntity<Response<ApplicantSummaryDTO>> getApplicantDetails(
-            @PathVariable Long applicationId) {
-
-        try {
-            Response<ApplicantSummaryDTO> response =
-                    jobApplicationManagementService.getApplicantDetails(applicationId);
-
-            return ResponseEntity.status(response.getStatusCode()).body(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(
-                    new Response<>(500, "Error retrieving applicant details: " + e.getMessage(), null));
-        }
-    }
-
-    /**
-     * Update the status of a job application
-     * @param applicationId The application ID
-     * @param request The status update request
-     * @return Success or failure response
-     */
-    @PutMapping("/applications/{applicationId}/status")
-    public ResponseEntity<Response<?>> updateApplicationStatus(
-            @PathVariable Long applicationId,
-            @RequestBody @Valid ApplicationStatusUpdateRequest request) {
-
-        try {
-            Response<?> response =
-                    jobApplicationManagementService.updateApplicationStatus(applicationId, request.getStatus());
-
-            return ResponseEntity.status(response.getStatusCode()).body(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(
-                    new Response<>(500, "Error updating application status: " + e.getMessage(), null));
-        }
-    }
-
-    /**
      * Update the status of all applications in a group
      * @param request The group status update request
      * @return Success or failure response
