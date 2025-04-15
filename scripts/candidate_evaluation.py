@@ -93,8 +93,8 @@ JOB DETAILS:
 - Job Requirements: {candidate_data.get('jobRequirements', 'N/A')}
 - Job Scope: {candidate_data.get('jobScope', 'N/A')}
 - Work Dates: {', '.join(candidate_data.get('appliedWorkDates', ['N/A']))}
-- Total Work Days: {candidate_data.get('totalWorkDays', 'N/A')}
-- Total Job Working Days: {candidate_data.get('totalJobWorkingDays', 'N/A')}
+- Total Work Days (Candidate Applied): {candidate_data.get('totalWorkDays', 'N/A')}
+- Total Job Working Days (The Working Days This Job Has): {candidate_data.get('totalJobWorkingDays', 'N/A')}
 - Locations: {', '.join(candidate_data.get('locationNames', ['N/A']))}
 
 CANDIDATE DETAILS:
@@ -157,8 +157,13 @@ Step 3: Assign scores on a scale of 1.0 to 10.0 in these categories:
    - Base score: Weighted average of above scores
    - IMPORTANT ADJUSTMENTS:
      - Full Commitment Check: If job requirements mention "prefer full commitment" or similar phrases:
-       - Add 1.5 points if candidate is applying for ALL available work days (totalWorkDays = totalJobWorkingDays)
-       - Subtract 1.5 points if candidate is NOT applying for all available work days
+       - Compare candidate's applied work days (`Total Work Days`) with job's total required days (`Total Job Working Days`)
+       - If Total Work Days = Total Job Working Days, add **maximum of +1.5 points**
+       - If Total Work Days < Total Job Working Days, deduct points proportionally:
+         - Example formula:
+           - commitment_ratio = Total Work Days / Total Job Working Days
+           - penalty = (1 - commitment_ratio) * 1.5
+           - Final adjustment = +1.5 (if full) or -penalty (if partial)
      - Bio Relevance: If candidate's bio mentions specific elements that match job scope or requirements, add 0.5 points
      - Any disqualifying factors (e.g., inability to meet explicit requirements like gender or language)
    - If there are explicit requirements the candidate doesn't meet, the AI Model Score should be substantially lower to reflect this
@@ -179,6 +184,7 @@ Return ONLY a JSON object with the following structure:
 }
 
 Your feedback should include these sections, clearly labeled and separated by blank lines (\\n\\n):
+
 1. KEY REQUIREMENTS: List of key job requirements identified
 2. EXPERIENCE ANALYSIS: Detailed explanation of experience score with specific examples
 3. SKILLS ANALYSIS: Detailed explanation of skills score with specific examples
@@ -189,14 +195,20 @@ Your feedback should include these sections, clearly labeled and separated by bl
 8. DEVELOPMENT AREAS: 3-5 areas of potential improvement
 9. OVERALL ASSESSMENT: Final comprehensive evaluation
 
-Within each section, use line breaks (\\n) to separate points. Make sure your feedback:
+IMPORTANT FORMAT RULES:
+- Use **double line breaks (\\n\\n)** to separate sections.
+- Use **single line breaks (\\n)** between each individual point or sentence **within a section**.
+- Do not merge multiple ideas into one line. Keep points short and clear.
+- Bullet points (e.g., "-") or numbered lists (e.g., "1.", "2.") are encouraged for better clarity.
+
+Make sure your feedback:
 1. Directly connects to specific job requirements
 2. Cites specific examples from candidate information
 3. Is actionable and specific
 4. Clearly explains any significant score impacts (especially low scores)
 5. EXPLICITLY explains any score adjustments for commitment level or bio relevance
 
-Do NOT include locationScore, availabilityScore, reputationScore, or finalScore as these will be calculated separately.
+Do NOT include locationScore, reputationScore, or finalScore as these will be calculated separately.
 DO NOT include any text before or after the JSON object.
 """
     return prompt

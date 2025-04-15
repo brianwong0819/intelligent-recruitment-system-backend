@@ -24,6 +24,7 @@ public class JobSummaryResponseDTO {
     private Long id;
     private String title;
     private JobTitleType jobTitleType;
+    private Long recruiterId;
     private String companyName;
     private String companyLogoUrl;
     private RecruiterType recruiterType;

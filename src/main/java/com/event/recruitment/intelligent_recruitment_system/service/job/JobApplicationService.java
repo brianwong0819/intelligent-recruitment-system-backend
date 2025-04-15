@@ -727,6 +727,7 @@ public class JobApplicationService {
                 .id(job.getId())
                 .title(job.getTitle())
                 .jobTitleType(job.getJobTitleType())
+                .recruiterId(recruiter.getId())
                 .companyName(recruiter.getCompanyName())
                 .companyLogoUrl(recruiter.getCompanyLogoUrl())
                 .recruiterType(recruiter.getRecruiterType())
