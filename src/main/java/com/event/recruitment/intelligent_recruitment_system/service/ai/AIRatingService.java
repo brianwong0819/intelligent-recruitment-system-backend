@@ -49,12 +49,11 @@ public class AIRatingService {
 
             CandidateAIEvaluationDataDTO evaluationData = dataResponse.getData();
 
-            // Get the first application ID from the group
-            if (evaluationData.getJobApplicationIds() == null || evaluationData.getJobApplicationIds().isEmpty()) {
-                return new Response<>(404, "No job applications found in this group", null);
+            // Get the first application ID from the group for reference (optional)
+            Long jobApplicationId = null;
+            if (evaluationData.getJobApplicationIds() != null && !evaluationData.getJobApplicationIds().isEmpty()) {
+                jobApplicationId = evaluationData.getJobApplicationIds().get(0);
             }
-
-            Long jobApplicationId = evaluationData.getJobApplicationIds().get(0);
 
             // 2. Process the data with Gemini AI
             GeminiAIResponseDTO aiResponse = geminiAIService.evaluateCandidate(evaluationData);
@@ -63,6 +62,7 @@ public class AIRatingService {
                 log.error("Gemini AI evaluation failed: {}", aiResponse.getError());
                 // Use default rating if AI evaluation fails
                 AIRatingRequestDTO fallbackRating = createFallbackRating(evaluationData, jobApplicationId);
+                fallbackRating.setApplicationGroupId(applicationGroupId);
                 fallbackRating.setAiFeedback(generateFallbackFeedback(evaluationData));
 
                 // Save the rating
@@ -78,8 +78,9 @@ public class AIRatingService {
                         saveResponse.getData());
             }
 
-            // Create rating from AI response for the first application only
-            AIRatingRequestDTO ratingRequest = AIRatingRequestDTO.fromGeminiResponse(jobApplicationId, aiResponse);
+            // Create rating from AI response for the group
+            AIRatingRequestDTO ratingRequest = AIRatingRequestDTO.fromGeminiResponse(
+                    jobApplicationId, applicationGroupId, aiResponse);
 
             // Override with calculated values
             updateRatingWithCalculatedValues(ratingRequest, evaluationData);
@@ -146,7 +147,8 @@ public class AIRatingService {
                 // Use fallback rating if AI evaluation fails
                 ratingRequest = createFallbackRating(evaluationData, jobApplicationId);
             } else {
-                ratingRequest = AIRatingRequestDTO.fromGeminiResponse(jobApplicationId, aiResponse);
+                // Use the version with three parameters to match evaluateByGroupId
+                ratingRequest = AIRatingRequestDTO.fromGeminiResponse(jobApplicationId, null, aiResponse);
                 // Override with calculated values
                 updateRatingWithCalculatedValues(ratingRequest, evaluationData);
             }
@@ -180,11 +182,15 @@ public class AIRatingService {
 
         // Use AI feedback for all applications
         String feedback = aiResponse.getFeedback();
+        String applicationGroupId = evaluationData.getJobApplicationIds().isEmpty() ? null :
+                jobApplicationRepository.findById(evaluationData.getJobApplicationIds().get(0))
+                        .map(JobApplication::getApplicationGroupId)
+                        .orElse(null);
 
         return evaluationData.getJobApplicationIds().stream()
                 .map(appId -> {
-                    // Create a rating for this application using AI response
-                    AIRatingRequestDTO rating = AIRatingRequestDTO.fromGeminiResponse(appId, aiResponse);
+                    // Create a rating for this application using AI response with three parameters
+                    AIRatingRequestDTO rating = AIRatingRequestDTO.fromGeminiResponse(appId, applicationGroupId, aiResponse);
 
                     // Override with calculated values
                     updateRatingWithCalculatedValues(rating, evaluationData);
@@ -423,6 +429,7 @@ public class AIRatingService {
 
         return AIRatingRequestDTO.builder()
                 .jobApplicationId(applicationId)
+                .applicationGroupId(null) // This will be set by the calling method if needed
                 .experienceScore(experienceScore)
                 .skillsScore(7.0)     // Default score
                 .locationScore(locationScore)
@@ -444,23 +451,26 @@ public class AIRatingService {
     @Transactional
     public Response<?> saveAIRating(AIRatingRequestDTO ratingRequest) {
         try {
-            // Check if job application exists
-            Optional<JobApplication> jobApplicationOpt = jobApplicationRepository.findById(
-                    ratingRequest.getJobApplicationId());
-
-            if (jobApplicationOpt.isEmpty()) {
-                return new Response<>(404, "Job application not found", null);
+            // Check parameters
+            if (ratingRequest.getJobApplicationId() == null && ratingRequest.getApplicationGroupId() == null) {
+                return new Response<>(400, "Either job application ID or application group ID must be provided", null);
             }
 
-            // Check if rating already exists
-            Optional<AIRating> existingRating = aiRatingRepository.findByJobApplicationId(
-                    ratingRequest.getJobApplicationId());
+            // Check if rating already exists by job application ID or group ID
+            Optional<AIRating> existingRating;
+
+            if (ratingRequest.getJobApplicationId() != null) {
+                existingRating = aiRatingRepository.findByJobApplicationId(ratingRequest.getJobApplicationId());
+            } else {
+                existingRating = aiRatingRepository.findByApplicationGroupId(ratingRequest.getApplicationGroupId());
+            }
 
             AIRating aiRating;
 
             if (existingRating.isPresent()) {
                 // Update existing rating
                 aiRating = existingRating.get();
+                // Update fields...
                 if (ratingRequest.getExperienceScore() != null) {
                     aiRating.setExperienceScore(new BigDecimal(ratingRequest.getExperienceScore()));
                 }
@@ -487,6 +497,7 @@ public class AIRatingService {
                 // Create new rating
                 aiRating = AIRating.builder()
                         .jobApplicationId(ratingRequest.getJobApplicationId())
+                        .applicationGroupId(ratingRequest.getApplicationGroupId())
                         .experienceScore(ratingRequest.getExperienceScore() != null ?
                                 new BigDecimal(ratingRequest.getExperienceScore()) : null)
                         .skillsScore(ratingRequest.getSkillsScore() != null ?

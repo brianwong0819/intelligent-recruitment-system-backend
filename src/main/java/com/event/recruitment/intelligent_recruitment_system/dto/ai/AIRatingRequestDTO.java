@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class AIRatingRequestDTO {
     private Long jobApplicationId;
+    private String applicationGroupId;
     private Double experienceScore;
     private Double skillsScore;
     private Double locationScore;
@@ -31,9 +32,10 @@ public class AIRatingRequestDTO {
      * @param response The Gemini AI response
      * @return A new AIRatingRequestDTO
      */
-    public static AIRatingRequestDTO fromGeminiResponse(Long jobApplicationId, GeminiAIResponseDTO response) {
+    public static AIRatingRequestDTO fromGeminiResponse(Long jobApplicationId,  String applicationGroupId, GeminiAIResponseDTO response) {
         return AIRatingRequestDTO.builder()
                 .jobApplicationId(jobApplicationId)
+                .applicationGroupId(applicationGroupId)
                 .experienceScore(response.getExperienceScore())
                 .skillsScore(response.getSkillsScore())
                 .locationScore(response.getLocationScore())

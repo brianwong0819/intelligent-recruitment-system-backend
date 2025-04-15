@@ -25,6 +25,9 @@ public class AIRating {
     @Column(name = "job_application_id", nullable = false, unique = true)
     private Long jobApplicationId;
 
+    @Column(name = "application_group_id")
+    private String applicationGroupId;
+
     @Column(name = "experience_score", precision = 5, scale = 2)
     private BigDecimal experienceScore;
 
