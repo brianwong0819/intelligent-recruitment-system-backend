@@ -53,6 +53,7 @@ public class SecurityConfig {
                                 "/api/jobs/public/**",
                                 "/api/public/**",
                                 "/api/files/**",
+                                "/api/training/materials/**",
                                 "/samples/**",
                                 "/error"
                         ).permitAll()

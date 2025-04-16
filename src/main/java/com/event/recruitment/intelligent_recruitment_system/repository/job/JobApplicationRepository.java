@@ -18,8 +18,6 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
     // Find applications by job location ID
     List<JobApplication> findByJobLocationId(Long jobLocationId);
 
-
-
     Optional<JobApplication> findByJobLocationAndCandidate(JobLocation jobLocation, Candidates candidate);
 
     List<JobApplication> findByCandidateIdOrderByApplicationDateDesc(Long candidateId);
@@ -47,7 +45,6 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
             "JOIN FETCH jl.location loc " +
             "WHERE ja.id = :applicationId")
     Optional<JobApplication> findByIdWithJobDetails(@Param("applicationId") Long applicationId);
-
 
     // Get all applications for a specific job
     @Query("SELECT ja FROM JobApplication ja " +
@@ -156,4 +153,16 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
             "LEFT JOIN FETCH j.jobSchedules js " +
             "WHERE ja.id = :applicationId")
     Optional<JobApplication> findByIdWithFullDetails(@Param("applicationId") Long applicationId);
+
+    /**
+     * Count candidates by job ID and list of application statuses
+     * Used for training status summary
+     * @param jobId The job ID
+     * @param statuses List of application statuses to include
+     * @return Count of candidates
+     */
+    @Query("SELECT COUNT(DISTINCT ja.candidate.id) FROM JobApplication ja " +
+            "JOIN ja.jobLocation jl " +
+            "WHERE jl.job.id = :jobId AND ja.applicationStatus IN :statuses")
+    long countByJobIdAndApplicationStatusIn(@Param("jobId") Long jobId, @Param("statuses") List<String> statuses);
 }

@@ -17,6 +17,9 @@ public class FileUploadConfig implements WebMvcConfigurer {
     @Value("${file.upload-dir:uploads}")
     private String uploadDir;
 
+    @Value("${file.training-materials-dir}")
+    private String trainingMaterialsDir;
+
     @Bean
     public MultipartResolver multipartResolver() {
         return new StandardServletMultipartResolver();
@@ -28,7 +31,13 @@ public class FileUploadConfig implements WebMvcConfigurer {
         Path uploadPath = Paths.get(uploadDir);
         String uploadAbsolutePath = uploadPath.toFile().getAbsolutePath();
 
+        Path trainingMaterialsUploadDir = Paths.get(trainingMaterialsDir);
+        String trainingMaterialsUploadPath = trainingMaterialsUploadDir.toFile().getAbsolutePath();
+
         registry.addResourceHandler("/api/files/**")
                 .addResourceLocations("file:" + uploadAbsolutePath + "/");
+
+        registry.addResourceHandler("/api/training/materials/**")
+                .addResourceLocations("file:" + trainingMaterialsUploadPath + "/");
     }
 }

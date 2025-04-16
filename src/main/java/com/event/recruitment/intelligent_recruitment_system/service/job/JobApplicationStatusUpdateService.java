@@ -100,10 +100,10 @@ public class JobApplicationStatusUpdateService {
                 case REJECTED:
                     transitionAllowed = (newStatus == JobApplication.ApplicationStatus.HIRED);
                     break;
-                // Add cases for other statuses (e.g., CANCELLED) if transitions FROM them are allowed
-                // case CANCELLED:
-                //    transitionAllowed = (newStatus == JobApplication.ApplicationStatus.PENDING); // Example
-                //    break;
+                case CANCELLED:
+                    // Allow transition from CANCELLED to PENDING
+                    transitionAllowed = (newStatus == JobApplication.ApplicationStatus.PENDING);
+                    break;
                 default:
                     // By default, transitions from unlisted/other statuses are not allowed
                     transitionAllowed = false;
@@ -157,13 +157,6 @@ public class JobApplicationStatusUpdateService {
         }
     }
 
-    /**
-     * Bulk update status for applications in a group.
-     * Includes validation against same-status updates and allowed transitions per application.
-     * @param groupId The application group ID
-     * @param status The new status to set
-     * @return Response indicating the result of the bulk status update
-     */
     /**
      * Bulk update status for applications in a group.
      * Includes validation against same-status updates and allowed transitions per application.
@@ -231,6 +224,10 @@ public class JobApplicationStatusUpdateService {
                         break;
                     case REJECTED:
                         transitionAllowed = (newStatus == JobApplication.ApplicationStatus.HIRED);
+                        break;
+                    case CANCELLED:
+                        // Allow transition from CANCELLED to PENDING
+                        transitionAllowed = (newStatus == JobApplication.ApplicationStatus.PENDING);
                         break;
                     // Add other cases as needed
                     default:
