@@ -309,10 +309,24 @@ public class CandidateTrainingService {
                 recordDTO.setCandidateName(candidateOpt.get().getName());
             }
 
-            // Return the training material with the record info
+            // Get job details
+            Optional<Jobs> jobOpt = jobRepository.findById(jobId);
+            Map<String, Object> jobInfo = new HashMap<>();
+
+            if (jobOpt.isPresent()) {
+                Jobs job = jobOpt.get();
+                jobInfo.put("id", job.getId());
+                jobInfo.put("title", job.getTitle());
+                jobInfo.put("jobTitleType", job.getJobTitleType());
+                jobInfo.put("jobDescription", job.getJobScope());
+                jobInfo.put("requirements", job.getRequirements());
+            }
+
+            // Return the training material with the record info and job info
             Map<String, Object> response = new HashMap<>();
             response.put("material", new TrainingMaterialResponseDTO(material));
-            response.put("record", recordDTO);  // 使用包含姓名的DTO
+            response.put("record", recordDTO);
+            response.put("job", jobInfo);
 
             return new Response<>(200, "Training material retrieved and view recorded", response);
         } catch (Exception e) {

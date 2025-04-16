@@ -27,6 +27,7 @@ def configure_genai_api(api_key):
     """Configure the Gemini AI API with the provided key."""
     try:
         genai.configure(api_key=api_key)
+
         logger.info("Gemini AI API configured successfully")
         return True
     except Exception as e:
@@ -52,7 +53,7 @@ def get_pdf_path(pdf_url, base_dir="."):
     filename = pdf_url.split('/')[-1]
 
     # Construct the full path relative to the base directory
-    pdf_path = os.path.join(base_dir, 'uploads', 'training', filename)
+    pdf_path = os.path.join(base_dir, 'uploads', 'training-materials', filename)
 
     # Check if the file exists
     if not os.path.exists(pdf_path):
@@ -77,6 +78,10 @@ IMPORTANT INSTRUCTIONS:
    - Proper procedures and protocols
    - Customer interaction guidelines
    - Event-specific information
+4. Questions must focus on practical knowledge that the promoter needs to do their job effectively.
+5. Avoid trivial questions about dates, slide numbers, or other non-essential details.
+6. DO NOT start questions with phrases like "According to the briefing deck..." or "According to slide X...".
+7. Ask questions directly, such as "What is the exclusive welcome pack available for new Luckin Coffee Malaysia app users?" instead of "According to slide 6, what exclusive welcome pack...".
 
 QUESTION FORMAT REQUIREMENTS:
 - Generate exactly 10 multiple-choice questions.
@@ -114,6 +119,8 @@ VERIFICATION CHECKLIST:
 - Questions must be clearly written and unambiguous
 - The correct answer must be clearly defensible based on the training material
 - Formatting must strictly follow the JSON template provided
+- Questions should directly ask about information without prefacing with "According to..."
+- No questions about general dates or other trivial information that doesn't impact job performance
 
 EXTREMELY IMPORTANT: Return ONLY valid JSON without any additional text, markdown formatting, or explanations before or after the JSON. The response MUST be parseable by a JSON parser without any modifications.
 """
