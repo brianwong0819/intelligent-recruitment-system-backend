@@ -29,6 +29,9 @@ public class AIRatingService {
     private final CandidateAIEvaluationService evaluationDataService;
     private final GeminiAIService geminiAIService;
 
+    // Number of retry attempts for AI evaluation
+    private static final int MAX_RETRY_ATTEMPTS = 1; // This means 1 retry after the initial attempt (2 total attempts)
+
     /**
      * Evaluates a candidate application using AI by application group ID
      *
@@ -55,11 +58,11 @@ public class AIRatingService {
                 jobApplicationId = evaluationData.getJobApplicationIds().get(0);
             }
 
-            // 2. Process the data with Gemini AI
-            GeminiAIResponseDTO aiResponse = geminiAIService.evaluateCandidate(evaluationData);
+            // 2. Process the data with Gemini AI (with retry)
+            GeminiAIResponseDTO aiResponse = evaluateCandidateWithRetry(evaluationData);
 
             if (aiResponse.hasError()) {
-                log.error("Gemini AI evaluation failed: {}", aiResponse.getError());
+                log.error("Gemini AI evaluation failed after retries: {}", aiResponse.getError());
                 // Use default rating if AI evaluation fails
                 AIRatingRequestDTO fallbackRating = createFallbackRating(evaluationData, jobApplicationId);
                 fallbackRating.setApplicationGroupId(applicationGroupId);
@@ -74,7 +77,7 @@ public class AIRatingService {
                 }
 
                 return new Response<>(200,
-                        "Candidate evaluated with fallback mechanism due to AI error: " + aiResponse.getError(),
+                        "Candidate evaluated with fallback mechanism due to AI error after retries: " + aiResponse.getError(),
                         saveResponse.getData());
             }
 
@@ -136,14 +139,14 @@ public class AIRatingService {
 
             CandidateAIEvaluationDataDTO evaluationData = dataResponse.getData();
 
-            // Get AI evaluation
-            GeminiAIResponseDTO aiResponse = geminiAIService.evaluateCandidate(evaluationData);
+            // Get AI evaluation with retry
+            GeminiAIResponseDTO aiResponse = evaluateCandidateWithRetry(evaluationData);
 
             // Create rating request from AI response
             AIRatingRequestDTO ratingRequest;
 
             if (aiResponse.hasError()) {
-                log.error("Gemini AI evaluation failed: {}", aiResponse.getError());
+                log.error("Gemini AI evaluation failed after retries: {}", aiResponse.getError());
                 // Use fallback rating if AI evaluation fails
                 ratingRequest = createFallbackRating(evaluationData, jobApplicationId);
             } else {
@@ -167,6 +170,45 @@ public class AIRatingService {
             log.error("Error evaluating candidate: {}", e.getMessage(), e);
             return new Response<>(500, "Error evaluating candidate: " + e.getMessage(), null);
         }
+    }
+
+    /**
+     * Evaluate a candidate with retry logic for failed AI evaluations
+     *
+     * @param evaluationData The data to evaluate
+     * @return The AI response, possibly after retries
+     */
+    private GeminiAIResponseDTO evaluateCandidateWithRetry(CandidateAIEvaluationDataDTO evaluationData) {
+        GeminiAIResponseDTO aiResponse = geminiAIService.evaluateCandidate(evaluationData);
+        int attempts = 0;
+
+        // If first attempt failed, retry
+        while (aiResponse.hasError() && attempts < MAX_RETRY_ATTEMPTS) {
+            attempts++;
+            log.warn("Gemini AI evaluation attempt {} failed: {}. Retrying...", attempts, aiResponse.getError());
+
+            // Add some delay between retries (optional)
+            try {
+                Thread.sleep(1000); // 1 second delay
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.warn("Retry delay interrupted");
+            }
+
+            // Try again
+            aiResponse = geminiAIService.evaluateCandidate(evaluationData);
+
+            if (!aiResponse.hasError()) {
+                log.info("Retry attempt {} succeeded", attempts);
+                break;
+            }
+        }
+
+        if (aiResponse.hasError()) {
+            log.error("All Gemini AI evaluation attempts failed ({} retries)", attempts);
+        }
+
+        return aiResponse;
     }
 
     /**
@@ -425,7 +467,7 @@ public class AIRatingService {
         double finalScore = aiModelScore + reputationScore;
 
         String feedback = "System generated assessment for job application ID " + applicationId +
-                " (AI evaluation service unavailable)";
+                " (AI evaluation service unavailable after multiple retry attempts)";
 
         return AIRatingRequestDTO.builder()
                 .jobApplicationId(applicationId)

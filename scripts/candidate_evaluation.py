@@ -5,6 +5,7 @@ import sys
 import os
 import argparse
 import logging
+import time
 from datetime import datetime
 
 # Setup logging
@@ -24,6 +25,12 @@ MODEL_NAMES = [
     "models/gemini-1.5-pro",
     "models/gemini-1.5-flash"
 ]
+
+# Maximum number of retries for the whole evaluation process
+MAX_EVALUATION_RETRIES = 1  # 1 retry after initial attempt (2 total attempts)
+
+# Delay between retries in seconds
+RETRY_DELAY = 2  # seconds
 
 def configure_genai_api(api_key):
     """Configure the Gemini AI API with the provided key."""
@@ -175,7 +182,7 @@ Step 3: Assign scores on a scale of 1.0 to 10.0 in these categories:
            - commitment_ratio = Total Work Days / Total Job Working Days
            - penalty = (1 - commitment_ratio) * 0.3
            - adjustment = -penalty (if partial)
-     - Bio Relevance: If candidate's bio mentions specific elements that match job scope or requirements, add 0.5 points
+     - Bio Relevance: If candidate's bio mentions specific elements that match job scope or requirements, add 0.25 points
      - Any disqualifying factors (e.g., inability to meet explicit requirements like gender or language)
    - If there are explicit requirements the candidate doesn't meet, the AI Model Score should be substantially lower to reflect this
 
@@ -259,9 +266,60 @@ def try_models_sequentially(prompt, resume_file=None):
     # If we get here, all models failed
     raise Exception(f"All models failed. Last error: {str(last_error)}")
 
-def evaluate_candidate(api_key, candidate_data, base_dir="."):
+def evaluate_candidate_with_retry(api_key, candidate_data, base_dir="."):
     """
-    Evaluate a candidate using Gemini AI.
+    Evaluate a candidate using Gemini AI with multiple retries for reliability.
+
+    Args:
+        api_key: The Gemini AI API key
+        candidate_data: Dictionary containing candidate and job information
+        base_dir: Base directory for finding resume files
+
+    Returns:
+        Dictionary containing evaluation scores and feedback
+    """
+    # Configure the API
+    if not configure_genai_api(api_key):
+        return {"error": "Failed to configure API"}
+
+    # Keep track of retry attempts
+    retries = 0
+    last_error = None
+
+    while retries <= MAX_EVALUATION_RETRIES:
+        if retries > 0:
+            logger.info(f"Retrying evaluation (attempt {retries} of {MAX_EVALUATION_RETRIES})...")
+            # Add delay between retries
+            time.sleep(RETRY_DELAY)
+
+        try:
+            # Perform the evaluation
+            result = evaluate_candidate_single_attempt(api_key, candidate_data, base_dir)
+
+            # If we didn't get an error, return the result
+            if "error" not in result:
+                if retries > 0:
+                    logger.info(f"Successfully evaluated after {retries} retry attempts")
+                return result
+
+            # If we got an error but it's just a JSON parsing issue, we can try again
+            last_error = result.get("error")
+            logger.warning(f"Evaluation attempt {retries} failed: {last_error}")
+
+        except Exception as e:
+            last_error = str(e)
+            logger.warning(f"Evaluation attempt {retries} failed with exception: {last_error}")
+
+        # Increment retry counter
+        retries += 1
+
+    # If we get here, all attempts failed
+    logger.error(f"All evaluation attempts failed after {MAX_EVALUATION_RETRIES} retries")
+    return {"error": f"Evaluation failed after {MAX_EVALUATION_RETRIES} retries. Last error: {last_error}"}
+
+def evaluate_candidate_single_attempt(api_key, candidate_data, base_dir="."):
+    """
+    Single attempt at evaluating a candidate using Gemini AI.
 
     Args:
         api_key: The Gemini AI API key
@@ -271,10 +329,6 @@ def evaluate_candidate(api_key, candidate_data, base_dir="."):
     Returns:
         Dictionary containing evaluation scores and feedback for a single job application
     """
-    # Configure the API
-    if not configure_genai_api(api_key):
-        return {"error": "Failed to configure API"}
-
     try:
         # Extract a single job application ID if we have multiple
         job_application_id = None
@@ -379,8 +433,8 @@ def main():
             with open(args.input, 'r', encoding='utf-8') as f:
                 candidate_data = json.load(f)
 
-        # Evaluate the candidate
-        result = evaluate_candidate(args.api_key, candidate_data, args.base_dir)
+        # Evaluate the candidate with retry logic
+        result = evaluate_candidate_with_retry(args.api_key, candidate_data, args.base_dir)
 
         # Write output
         if args.output:

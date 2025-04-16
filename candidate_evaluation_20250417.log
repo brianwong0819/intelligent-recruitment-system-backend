@@ -1,0 +1,16 @@
+2025-04-17 00:58:09,099 - candidate_evaluation - INFO - Reading candidate data from C:\Users\Acer\AppData\Local\Temp\candidate_data_9478656324175385987.json
+2025-04-17 00:58:09,100 - candidate_evaluation - INFO - Gemini AI API configured successfully
+2025-04-17 00:58:09,100 - candidate_evaluation - INFO - Evaluating for job application ID: 112
+2025-04-17 00:58:09,100 - candidate_evaluation - INFO - Found resume file at: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\6631ad3d-f653-4697-966f-87fb126ad493.pdf
+2025-04-17 00:58:09,100 - candidate_evaluation - INFO - Uploading resume from path: C:\Users\Acer\OneDrive\Desktop\fyp\Code\intelligent-recruitment-system\.\uploads\resumes\6631ad3d-f653-4697-966f-87fb126ad493.pdf
+2025-04-17 00:58:11,999 - candidate_evaluation - INFO - Successfully uploaded resume: files/anu8azjs9yrt
+2025-04-17 00:58:11,999 - candidate_evaluation - INFO - Prepared evaluation prompt
+2025-04-17 00:58:12,000 - candidate_evaluation - INFO - Sending request to Gemini AI...
+2025-04-17 00:58:12,000 - candidate_evaluation - INFO - Trying model: models/gemini-2.0-flash
+2025-04-17 00:58:12,000 - candidate_evaluation - INFO - Sending request with resume to model: models/gemini-2.0-flash
+2025-04-17 00:58:19,058 - candidate_evaluation - INFO - Successfully used model: models/gemini-2.0-flash
+2025-04-17 00:58:19,058 - candidate_evaluation - INFO - Received response from Gemini AI
+2025-04-17 00:58:19,059 - candidate_evaluation - WARNING - Failed to parse response as JSON: Expecting value: line 1 column 1 (char 0)
+2025-04-17 00:58:19,059 - candidate_evaluation - WARNING - Attempting to extract JSON from text...
+2025-04-17 00:58:19,059 - candidate_evaluation - INFO - Successfully extracted and parsed JSON from text
+2025-04-17 00:58:19,059 - candidate_evaluation - INFO - Writing evaluation results to C:\Users\Acer\AppData\Local\Temp\ai_response_9234872236094845972.json
