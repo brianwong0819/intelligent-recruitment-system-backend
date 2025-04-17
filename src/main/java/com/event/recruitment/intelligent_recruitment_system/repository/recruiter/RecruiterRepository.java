@@ -4,6 +4,7 @@ import com.event.recruitment.intelligent_recruitment_system.model.entity.recruit
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -16,4 +17,7 @@ public interface RecruiterRepository extends JpaRepository<Recruiters, Long> {
     Optional<Recruiters> findByPhoneNumber(String phoneNumber);
 
     Optional<Recruiters> findByOauthId(String oauthId);
+
+    List<Recruiters> findByIsDeletedFalse();
+
 }

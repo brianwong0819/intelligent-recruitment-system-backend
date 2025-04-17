@@ -48,6 +48,7 @@ public class SecurityConfig {
                                 "/api/locations/{id}",
                                 "/api/auth/candidate/login",
                                 "/api/auth/recruiter/login",
+                                "/api/auth/admin/login",  // Added admin login endpoint
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
                                 "/api/jobs/public/**",
@@ -57,6 +58,8 @@ public class SecurityConfig {
                                 "/samples/**",
                                 "/error"
                         ).permitAll()
+                        // Admin endpoints are secured by @PreAuthorize in the controller
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         // OPTIONS requests for CORS preflight
                         .requestMatchers(request -> "OPTIONS".equalsIgnoreCase(request.getMethod())).permitAll()
                         // All other requests need authentication
