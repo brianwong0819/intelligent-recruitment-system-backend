@@ -56,6 +56,7 @@ public class JobService {
     private final CandidateRepository candidateRepository;
     private final LocationRepository locationRepository;
     private final JobInteractionService jobInteractionService;
+    private final JobApplicationManagementService jobApplicationManagementService;
 
 
     /**
@@ -445,6 +446,12 @@ public class JobService {
             // Validate status change
             validateStatusChange(job.getStatus(), request.getNewStatus());
 
+            // If job is being cancelled, cancel all applications
+            if (request.getNewStatus() == JobStatusType.CANCELLED) {
+                // Cancel all applications for this job
+                jobApplicationManagementService.cancelAllApplicationsForJob(job.getId());
+            }
+
             // Update job status
             job.setStatus(request.getNewStatus());
 
@@ -467,7 +474,6 @@ public class JobService {
                     null);
         }
     }
-
     /**
      * Maps a job entity to a detailed response DTO including schedules, dates, and locations.
      */

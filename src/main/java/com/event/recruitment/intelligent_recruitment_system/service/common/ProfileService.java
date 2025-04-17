@@ -331,4 +331,49 @@ public class ProfileService {
 
         return new Response<>(200, "Password changed successfully", null);
     }
+
+    @Transactional
+    public Response<?> updateCandidateEmail(String newEmail) {
+        // Get current username
+        String username = securityUtil.getCurrentUsername();
+        if (username == null) {
+            return new Response<>(401, "Unauthorized: No authentication found", null);
+        }
+
+        // Verify user is a candidate
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        boolean isCandidate = authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_CANDIDATE"));
+
+        if (!isCandidate) {
+            return new Response<>(403, "Only candidates can use this functionality", null);
+        }
+
+        // Find the candidate
+        Optional<Candidates> optionalCandidate = candidateRepository.findByUsername(username);
+        if (optionalCandidate.isEmpty()) {
+            return new Response<>(404, "Candidate not found", null);
+        }
+
+        Candidates candidate = optionalCandidate.get();
+
+        // Don't update if email is the same
+        if (candidate.getEmail().equals(newEmail)) {
+            return new Response<>(200, "Email is already set to this value", candidate.getEmail());
+        }
+
+        // Check if email already exists
+        Optional<Candidates> emailExistsCandidate = candidateRepository.findByEmail(newEmail);
+        Optional<Recruiters> emailExistsRecruiter = recruiterRepository.findByEmail(newEmail);
+
+        if (emailExistsCandidate.isPresent() || emailExistsRecruiter.isPresent()) {
+            return new Response<>(409, "Email already exists", null);
+        }
+
+        // Update email
+        candidate.setEmail(newEmail);
+        candidateRepository.save(candidate);
+
+        return new Response<>(200, "Email updated successfully", newEmail);
+    }
 }

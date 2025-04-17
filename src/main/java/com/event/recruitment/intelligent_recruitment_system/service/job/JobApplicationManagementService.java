@@ -756,4 +756,43 @@ public class JobApplicationManagementService {
         return LocalDateTime.now();
     }
 
+    /**
+     * Cancel all applications for a job when the job is cancelled
+     *
+     * @param jobId The job ID to cancel all applications for
+     * @return true if the operation was successful, false otherwise
+     */
+    @Transactional
+    public boolean cancelAllApplicationsForJob(Long jobId) {
+        try {
+            log.info("Cancelling all applications for job ID: {}", jobId);
+
+            // Get all applications for this job
+            List<JobApplication> applications = jobApplicationRepository.findByJobIdWithFullDetails(jobId);
+
+            if (applications.isEmpty()) {
+                log.info("No applications found for job ID: {}", jobId);
+                return true;
+            }
+
+            // Update all applications to CANCELLED status
+            for (JobApplication application : applications) {
+                // Only update if not already cancelled or rejected
+                if (application.getApplicationStatus() != JobApplication.ApplicationStatus.CANCELLED &&
+                        application.getApplicationStatus() != JobApplication.ApplicationStatus.REJECTED) {
+
+                    application.setApplicationStatus(JobApplication.ApplicationStatus.CANCELLED);
+                    application.setWithdrawalReason("Job was cancelled by the recruiter");
+                    jobApplicationRepository.save(application);
+                }
+            }
+
+            log.info("Successfully cancelled {} applications for job ID: {}", applications.size(), jobId);
+            return true;
+        } catch (Exception e) {
+            log.error("Error cancelling applications for job: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
 }

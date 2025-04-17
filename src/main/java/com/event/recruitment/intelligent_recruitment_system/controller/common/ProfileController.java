@@ -45,4 +45,15 @@ public class ProfileController {
             return ResponseEntity.status(500).body(new Response<>(500, "Error changing password: " + e.getMessage(), null));
         }
     }
+
+    // Add to ProfileController.java
+    @PutMapping("/update-email")
+    public ResponseEntity<Response<?>> updateCandidateEmail(@RequestParam String newEmail) {
+        try {
+            Response<?> response = profileService.updateCandidateEmail(newEmail);
+            return ResponseEntity.status(response.getStatusCode()).body(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(new Response<>(500, "Error updating email: " + e.getMessage(), null));
+        }
+    }
 }
