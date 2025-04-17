@@ -36,6 +36,7 @@ public class Candidates {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "auth_provider")
+    @Builder.Default
     private AuthProvider authProvider = AuthProvider.LOCAL;
 
     @Column(name = "oauth_id")
@@ -78,8 +79,15 @@ public class Candidates {
     private String resumeUrl;
 
     @Column(name = "is_deleted")
+    @Builder.Default
     private Boolean isDeleted = false;
 
     @Column(name = "created_at", nullable = false, updatable = false)
+    @Builder.Default
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // New field for searchable status
+    @Column(name = "is_searchable")
+    @Builder.Default
+    private Boolean isSearchable = false;
 }

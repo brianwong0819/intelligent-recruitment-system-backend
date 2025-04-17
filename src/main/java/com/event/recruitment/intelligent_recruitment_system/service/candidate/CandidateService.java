@@ -2,6 +2,7 @@ package com.event.recruitment.intelligent_recruitment_system.service.candidate;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.request.auth.CandidateRegistrationRequest;
 import com.event.recruitment.intelligent_recruitment_system.dto.request.candidate.UpdateAvailabilityRequest;
+import com.event.recruitment.intelligent_recruitment_system.dto.request.candidate.UpdateSearchableStatusRequest;
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.AvailabilityResponse;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateResponseDTO;
@@ -15,6 +16,7 @@ import com.event.recruitment.intelligent_recruitment_system.repository.candidate
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
 import com.event.recruitment.intelligent_recruitment_system.util.CandidateMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,6 +78,7 @@ public class CandidateService {
                 .bio(request.getBio())  // Set bio field
                 .languages(request.getLanguages())  // Set languages field
                 .isDeleted(false)
+                .isSearchable(false) // By default, candidates are not searchable
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -223,5 +226,63 @@ public class CandidateService {
         response.setCustomDates(customDates);
 
         return new Response<>(200, "Availability retrieved successfully", response);
+    }
+
+    /**
+     * Update the candidate's searchable status
+     * @param request The request containing the new searchable status
+     * @return Response with the updated status
+     */
+    @Transactional
+    public Response<?> updateSearchableStatus(UpdateSearchableStatusRequest request) {
+        // Get current user from security context
+        String username = securityUtil.getCurrentUsername();
+
+        if (username == null) {
+            return new Response<>(HttpStatus.UNAUTHORIZED.value(), "User not authenticated", null);
+        }
+
+        // Find the candidate
+        Optional<Candidates> candidateOpt = candidateRepository.findByUsername(username);
+
+        if (candidateOpt.isEmpty()) {
+            return new Response<>(HttpStatus.NOT_FOUND.value(), "Candidate not found", null);
+        }
+
+        Candidates candidate = candidateOpt.get();
+
+        // Update searchable status
+        candidate.setIsSearchable(request.getIsSearchable());
+        candidateRepository.save(candidate);
+
+        return new Response<>(HttpStatus.OK.value(),
+                request.getIsSearchable() ? "Profile is now searchable by recruiters" : "Profile is no longer searchable by recruiters",
+                request.getIsSearchable());
+    }
+
+    /**
+     * Get the candidate's current searchable status
+     * @return Response with the current status
+     */
+    public Response<?> getSearchableStatus() {
+        // Get current user from security context
+        String username = securityUtil.getCurrentUsername();
+
+        if (username == null) {
+            return new Response<>(HttpStatus.UNAUTHORIZED.value(), "User not authenticated", null);
+        }
+
+        // Find the candidate
+        Optional<Candidates> candidateOpt = candidateRepository.findByUsername(username);
+
+        if (candidateOpt.isEmpty()) {
+            return new Response<>(HttpStatus.NOT_FOUND.value(), "Candidate not found", null);
+        }
+
+        Candidates candidate = candidateOpt.get();
+
+        return new Response<>(HttpStatus.OK.value(),
+                "Current searchable status",
+                candidate.getIsSearchable());
     }
 }

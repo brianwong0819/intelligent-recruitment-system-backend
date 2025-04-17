@@ -1,18 +1,16 @@
 package com.event.recruitment.intelligent_recruitment_system.util;
 
-import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateComcardDTO;
-import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateExperienceDTO;
-import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateProfileDTO;
-import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateResponseDTO;
-import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateSummaryDTO;
-import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.CandidateWorkingPhotoDTO;
+import com.event.recruitment.intelligent_recruitment_system.dto.response.candidate.*;
 import com.event.recruitment.intelligent_recruitment_system.dto.response.location.LocationResponseDTO;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateExperience;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateSelfphotoComcard;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.CandidateWorkingPhoto;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.Candidates;
+import com.event.recruitment.intelligent_recruitment_system.model.enums.Language;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -91,7 +89,7 @@ public class CandidateMapper {
         profileDTO.setPreferredLocation(locationString);
 
         // Convert languages enum list to string list
-        if (candidate.getLanguages() != null) {
+        if (candidate.getLanguages() != null && !candidate.getLanguages().isEmpty()) {
             profileDTO.setLanguages(
                     candidate.getLanguages().stream()
                             .map(Enum::name)
@@ -120,7 +118,7 @@ public class CandidateMapper {
 
         // Convert languages enum list to string list
         List<String> languageStrings = new ArrayList<>();
-        if (candidate.getLanguages() != null) {
+        if (candidate.getLanguages() != null && !candidate.getLanguages().isEmpty()) {
             languageStrings = candidate.getLanguages().stream()
                     .map(Enum::name)
                     .collect(Collectors.toList());
@@ -169,5 +167,47 @@ public class CandidateMapper {
         }
 
         return new CandidateComcardDTO(comcard);
+    }
+
+    /**
+     * Convert a Candidate entity to a CandidateSearchResponseDTO
+     * @param candidate The candidate entity
+     * @param experiences The candidate's experiences
+     * @return CandidateSearchResponseDTO
+     */
+    public CandidateSearchResponseDTO toSearchResponseDTO(Candidates candidate, List<CandidateExperience> experiences) {
+        // Calculate age from date of birth if available
+        String age = "N/A";
+        if (candidate.getDateOfBirth() != null) {
+            int ageValue = Period.between(candidate.getDateOfBirth(), LocalDate.now()).getYears();
+            age = String.valueOf(ageValue);
+        }
+
+        // Extract job types from experiences - convert enum to string
+        List<String> experienceTypes = experiences.stream()
+                .map(exp -> exp.getJobType() != null ? exp.getJobType().name() : null)
+                .filter(jobType -> jobType != null)
+                .collect(Collectors.toList());
+
+        // Get preferred location name if available
+        String locationName = candidate.getPreferredLocation() != null ?
+                candidate.getPreferredLocation().getName() : null;
+
+        // Build the response DTO
+        return CandidateSearchResponseDTO.builder()
+                .id(candidate.getId())
+                .name(candidate.getName())
+                .profilePictureUrl(candidate.getProfilePictureUrl())
+                .gender(candidate.getGender())
+                .age(age)
+                .ethnicity(candidate.getRace())
+                .languages(candidate.getLanguages())
+                .employmentStatus(candidate.getEmploymentStatus())
+                .availability(candidate.getAvailability())
+                .preferredLocationName(locationName)
+                .experienceCount(experiences.size())
+                .experienceTypes(experienceTypes)
+                .bio(candidate.getBio())
+                .build();
     }
 }
