@@ -16,6 +16,7 @@ import com.event.recruitment.intelligent_recruitment_system.repository.job.JobLo
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobScheduleDateRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
 import com.event.recruitment.intelligent_recruitment_system.service.ai.AIRatingService;
+import com.event.recruitment.intelligent_recruitment_system.service.candidate.CandidateReputationService;
 import com.event.recruitment.intelligent_recruitment_system.service.email.EmailService;
 import com.event.recruitment.intelligent_recruitment_system.service.location.LocationService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,8 @@ public class JobApplicationService {
     private final LocationService locationService;
     private final AIRatingService aiRatingService; // Added AIRatingService
     private JobSummaryResponseDTO jobSummary;
+    private final CandidateReputationService candidateReputationService;
+
 
     @Transactional
     public Response<JobApplicationResponseDTO> applyForJob(JobApplicationRequest request) {
@@ -497,13 +500,13 @@ public class JobApplicationService {
                         "You do not have permission to withdraw this application", null);
             }
 
-            // Check if the application can be withdrawn (not already hired)
+            // Check if the application is in HIRED status
             if (application.getApplicationStatus() == JobApplication.ApplicationStatus.HIRED) {
-                return new Response<>(HttpStatus.BAD_REQUEST.value(),
-                        "Cannot withdraw an application for a job you've been hired for", null);
+                // Handle hired job withdrawal separately with reputation impact
+                return withdrawFromHiredJob(application, request.getWithdrawalReason());
             }
 
-            // Update the application status and withdrawal reason
+            // For non-hired applications, proceed as before
             application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
             application.setWithdrawalReason(request.getWithdrawalReason());
             jobApplicationRepository.save(application);
@@ -512,6 +515,7 @@ public class JobApplicationService {
                     "Application withdrawn successfully", null);
 
         } catch (Exception e) {
+            log.error("Error withdrawing application: {}", e.getMessage(), e);
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Error withdrawing application: " + e.getMessage(), null);
         }
@@ -566,6 +570,8 @@ public class JobApplicationService {
      * @param groupId The application group ID
      * @return Response indicating success or failure
      */
+    // src/main/java/com/event/recruitment/intelligent_recruitment_system/service/job/JobApplicationService.java
+
     @Transactional
     public Response<?> withdrawApplicationsByGroup(String groupId, WithdrawApplicationRequest request) {
         try {
@@ -591,24 +597,108 @@ public class JobApplicationService {
             boolean anyHired = applications.stream()
                     .anyMatch(app -> app.getApplicationStatus() == JobApplication.ApplicationStatus.HIRED);
 
-            if (anyHired) {
-                return new Response<>(HttpStatus.BAD_REQUEST.value(),
-                        "Cannot withdraw applications as one or more are in HIRED status", null);
-            }
-
             // Update all applications to WITHDRAWN status with the withdrawal reason
             for (JobApplication application : applications) {
                 application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
                 application.setWithdrawalReason(request.getWithdrawalReason());
                 jobApplicationRepository.save(application);
+
+                // Update job location's filled positions count if it was HIRED
+                if (application.getApplicationStatus() == JobApplication.ApplicationStatus.HIRED) {
+                    JobLocation jobLocation = application.getJobLocation();
+                    if (jobLocation != null) {
+                        int currentFilled = jobLocation.getPositionsFilled();
+                        jobLocation.setPositionsFilled(Math.max(0, currentFilled - 1));
+
+                        // Update status based on positions filled
+                        if (jobLocation.getPositionsFilled() == 0) {
+                            jobLocation.setStatus(JobLocationStatus.OPEN);
+                        } else if (jobLocation.getPositionsFilled() < jobLocation.getPositionsNeeded()) {
+                            jobLocation.setStatus(JobLocationStatus.PARTIAL_FILLED);
+                        }
+
+                        jobLocationRepository.save(jobLocation);
+                    }
+                }
+            }
+
+            // If any were in HIRED status, apply a SINGLE reputation penalty for the group
+            if (anyHired) {
+                candidateReputationService.applyHiredWithdrawalPenaltyForGroup(
+                        candidate.getId(),
+                        groupId,
+                        request.getWithdrawalReason()
+                );
+
+                return new Response<>(HttpStatus.OK.value(),
+                        "All applications in the group withdrawn successfully. A reputation penalty has been applied.", null);
             }
 
             return new Response<>(HttpStatus.OK.value(),
                     "All applications in the group withdrawn successfully", null);
 
         } catch (Exception e) {
+            log.error("Error withdrawing applications: {}", e.getMessage(), e);
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Error withdrawing applications: " + e.getMessage(), null);
+        }
+    }
+
+    @Transactional
+    protected Response<?> withdrawFromHiredJob(JobApplication application, String withdrawalReason) {
+        try {
+            // Update the application status and withdrawal reason
+            application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
+            application.setWithdrawalReason(withdrawalReason);
+            jobApplicationRepository.save(application);
+
+            // Check if this application is part of a group
+            String groupId = application.getApplicationGroupId();
+
+            // Apply the reputation penalty
+            Long candidateId = application.getCandidate().getId();
+            Long jobApplicationId = application.getId();
+            String description = "Withdrew from hired job: " + withdrawalReason;
+
+            // If it's part of a group, use the group penalty method
+            Response<?> reputationResponse;
+            if (groupId != null) {
+                reputationResponse = candidateReputationService.applyHiredWithdrawalPenaltyForGroup(
+                        candidateId, groupId, withdrawalReason);
+            } else {
+                // For single applications, use the original method
+                reputationResponse = candidateReputationService.applyHiredWithdrawalPenalty(
+                        candidateId, jobApplicationId, description);
+            }
+
+            if (reputationResponse.getStatusCode() != 200) {
+                // Log the error but continue with the withdrawal
+                log.warn("Failed to apply reputation penalty: {}", reputationResponse.getMessage());
+            }
+
+            // Update job location's filled positions count
+            JobLocation jobLocation = application.getJobLocation();
+            if (jobLocation != null) {
+                int currentFilled = jobLocation.getPositionsFilled();
+                jobLocation.setPositionsFilled(Math.max(0, currentFilled - 1));
+
+                // Update status based on positions filled
+                if (jobLocation.getPositionsFilled() == 0) {
+                    jobLocation.setStatus(JobLocationStatus.OPEN);
+                } else if (jobLocation.getPositionsFilled() < jobLocation.getPositionsNeeded()) {
+                    jobLocation.setStatus(JobLocationStatus.PARTIAL_FILLED);
+                }
+
+                jobLocationRepository.save(jobLocation);
+            }
+
+            return new Response<>(HttpStatus.OK.value(),
+                    "Application withdrawn successfully. Note: A reputation penalty has been applied for withdrawing from a job you were hired for.", null);
+
+        } catch (Exception e) {
+            log.error("Error withdrawing from hired job: {}", e.getMessage(), e);
+            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Error withdrawing from hired job: " + e.getMessage(), null);
         }
     }
 
