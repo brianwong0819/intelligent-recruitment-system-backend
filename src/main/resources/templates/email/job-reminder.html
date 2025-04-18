@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Job Reminder - CrewConnect</title>
+    <style>
+        /* Base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header styles */
+        .header {
+            background-color: #6C63FF;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .logo {
+            margin-bottom: 15px;
+        }
+
+        .logo-text {
+            font-family: 'Arial', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -1px;
+        }
+
+        .logo-text span {
+            font-weight: 400;
+        }
+
+        .header-title {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        /* Content styles */
+        .content {
+            padding: 30px;
+            background-color: #ffffff;
+        }
+
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .highlight {
+            color: #6C63FF;
+            font-weight: 600;
+        }
+
+        .highlight-urgent {
+            color: #EF4444;
+            font-weight: 600;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: #4a4a4a;
+        }
+
+        /* Reminder banner */
+        .reminder-banner {
+            background-color: #FEF3C7;
+            border-left: 4px solid #F59E0B;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-bottom: 25px;
+        }
+
+        .reminder-banner h3 {
+            color: #B45309;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .reminder-banner p {
+            color: #92400E;
+            margin-bottom: 0;
+        }
+
+        /* Job details card */
+        .card {
+            background-color: #f9f9ff;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 25px 0;
+            border-left: 4px solid #6C63FF;
+        }
+
+        .card h2 {
+            color: #444;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #6C63FF;
+        }
+
+        .detail-row {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .detail-label {
+            width: 120px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .detail-value {
+            flex: 1;
+            color: #333;
+        }
+
+        /* Work dates */
+        .dates-container {
+            margin-top: 15px;
+        }
+
+        .date-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .date-list li {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        /* Important section */
+        .important-section {
+            background-color: #E0F2FE;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 25px 0;
+            border-left: 4px solid #0EA5E9;
+        }
+
+        .important-section h3 {
+            color: #0369A1;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .important-list {
+            margin-left: 20px;
+            margin-bottom: 0;
+        }
+
+        .important-list li {
+            margin-bottom: 8px;
+            color: #0C4A6E;
+        }
+
+        /* Contact section */
+        .contact-section {
+            margin: 25px 0;
+            padding: 20px;
+            background-color: #F3F4F6;
+            border-radius: 10px;
+        }
+
+        .contact-section h3 {
+            color: #374151;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .contact-item {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        .contact-label {
+            width: 100px;
+            font-weight: 600;
+            color: #4B5563;
+        }
+
+        .contact-value {
+            flex: 1;
+            color: #1F2937;
+        }
+
+        /* Action section */
+        .action-section {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .action-btn {
+            display: inline-block;
+            background-color: #6C63FF;
+            color: #ffffff;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+
+        .action-btn:hover {
+            background-color: #5B54D9;
+        }
+
+        /* Footer styles */
+        .footer {
+            background-color: #f9f9ff;
+            padding: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #777;
+            border-top: 1px solid #eeeef9;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <div class="logo">
+            <div class="logo-text">Crew<span>Connect</span></div>
+        </div>
+        <h1 class="header-title">Job Reminder</h1>
+    </div>
+
+    <div class="content">
+        <div class="reminder-banner">
+            <h3>Important Reminder</h3>
+            <p>You have an upcoming job assignment in <span class="highlight-urgent">48 hours</span>. Please review the details below.</p>
+        </div>
+
+        <p class="greeting">Hello <span th:text="${candidateName}">User</span>,</p>
+
+        <p>
+            This is a friendly reminder that you are scheduled to work for <span class="highlight" th:text="${companyName}">Company Name</span> as a <span class="highlight" th:text="${jobTitle}">Position</span> in 48 hours.
+        </p>
+
+        <div class="card">
+            <h2>Job Details</h2>
+
+            <div class="detail-row">
+                <div class="detail-label">Position</div>
+                <div class="detail-value" th:text="${jobTitle}">Position</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Company</div>
+                <div class="detail-value" th:text="${companyName}">Company</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label" th:text="${isMultiLocation} ? 'Locations' : 'Location'">Location</div>
+                <div class="detail-value" th:text="${locations}">Location</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Work Date(s)</div>
+                <div class="detail-value dates-container">
+                    <ul class="date-list">
+                        <li th:each="date : ${workDates}" th:text="${date}">Work Date</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="important-section" th:if="${hasRequirements}">
+            <h3>What You Need to Know</h3>
+            <p>Please review the job requirements and details:</p>
+            <div th:text="${requirements}">Requirements will appear here.</div>
+        </div>
+
+        <div class="important-section">
+            <h3>Important Reminders</h3>
+            <ul class="important-list">
+                <li>Arrive at least 15 minutes before your scheduled start time</li>
+                <li>Bring identification and any documents requested by the employer</li>
+                <li>Dress appropriately for the position (professional attire unless specified otherwise)</li>
+                <li>If you cannot attend, please contact the recruiter immediately</li>
+            </ul>
+        </div>
+
+        <div class="contact-section">
+            <h3>Contact Information</h3>
+            <div class="contact-item">
+                <div class="contact-label">Recruiter:</div>
+                <div class="contact-value" th:text="${recruiterName}">Recruiter Name</div>
+            </div>
+            <div class="contact-item">
+                <div class="contact-label">Email:</div>
+                <div class="contact-value" th:text="${recruiterEmail}">recruiter@example.com</div>
+            </div>
+            <div class="contact-item">
+                <div class="contact-label">Phone:</div>
+                <div class="contact-value" th:text="${recruiterPhone}">+123456789</div>
+            </div>
+        </div>
+
+        <p>If you have any questions or need to report any issues, please contact the recruiter as soon as possible.</p>
+
+        <div class="action-section">
+            <a href="http://localhost:5173/candidate/applications" class="action-btn">View Application Details</a>
+        </div>
+
+        <p>Thank you for being part of our team!</p>
+
+        <p>Best regards,<br>The CrewConnect Team</p>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2025 CrewConnect. All rights reserved.</p>
+        <p>This is an automated email. Please do not reply to this message.</p>
+    </div>
+</div>
+</body>
+</html>

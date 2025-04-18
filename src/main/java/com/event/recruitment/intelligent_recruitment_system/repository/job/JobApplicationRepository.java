@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -165,4 +166,23 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
             "JOIN ja.jobLocation jl " +
             "WHERE jl.job.id = :jobId AND ja.applicationStatus IN :statuses")
     long countByJobIdAndApplicationStatusIn(@Param("jobId") Long jobId, @Param("statuses") List<String> statuses);
+
+    /**
+     * Find all hired applications with work date on the specified target date
+     *
+     * @param targetDate The date to check for work assignments
+     * @return List of hired applications with work on the target date
+     */
+    @Query("SELECT ja FROM JobApplication ja " +
+            "JOIN FETCH ja.candidate c " +
+            "JOIN FETCH ja.jobLocation jl " +
+            "JOIN FETCH jl.location loc " +
+            "JOIN FETCH jl.jobScheduleDate sd " +
+            "JOIN FETCH jl.job j " +
+            "JOIN FETCH j.project p " +
+            "JOIN FETCH p.recruiter r " +
+            "JOIN FETCH j.jobSchedules s " +
+            "WHERE ja.applicationStatus = 'HIRED' " +
+            "AND sd.workDate = :targetDate")
+    List<JobApplication> findUpcomingHiredApplications(@Param("targetDate") LocalDate targetDate);
 }

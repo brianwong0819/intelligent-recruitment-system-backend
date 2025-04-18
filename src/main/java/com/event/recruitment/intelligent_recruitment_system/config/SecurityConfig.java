@@ -48,7 +48,7 @@ public class SecurityConfig {
                                 "/api/locations/{id}",
                                 "/api/auth/candidate/login",
                                 "/api/auth/recruiter/login",
-                                "/api/auth/admin/login",  // Added admin login endpoint
+                                "/api/auth/admin/login",
                                 "/api/auth/refresh",
                                 "/api/auth/logout",
                                 "/api/jobs/public/**",

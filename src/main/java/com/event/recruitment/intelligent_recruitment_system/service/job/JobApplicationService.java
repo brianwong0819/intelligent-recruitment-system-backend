@@ -9,6 +9,7 @@ import com.event.recruitment.intelligent_recruitment_system.model.entity.candida
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobApplication;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobLocation;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;
+import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Recruiters;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobLocationStatus;
 import com.event.recruitment.intelligent_recruitment_system.repository.candidate.CandidateRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobApplicationRepository;
@@ -46,7 +47,7 @@ public class JobApplicationService {
     private final SecurityUtil securityUtil;
     private final EmailService emailService;
     private final LocationService locationService;
-    private final AIRatingService aiRatingService; // Added AIRatingService
+    private final AIRatingService aiRatingService;
     private JobSummaryResponseDTO jobSummary;
     private final CandidateReputationService candidateReputationService;
 
@@ -120,12 +121,16 @@ public class JobApplicationService {
                 savedApplications.add(jobApplicationRepository.save(application));
             }
 
-            // Send email first, using the original transaction's database state
+            // Send email notifications
             try {
+                // Send email to candidate
                 sendApplicationConfirmationEmail(candidate, savedApplications);
+
+                // Send email to recruiter about the new application
+                sendNewApplicationEmailToRecruiter(candidate, savedApplications);
             } catch (Exception e) {
-                log.error("Error sending application confirmation email: {}", e.getMessage(), e);
-                // Continue with the process even if email fails
+                log.error("Error sending application confirmation emails: {}", e.getMessage(), e);
+                // Continue with the process even if emails fail
             }
 
             // Convert to response DTO
@@ -185,121 +190,482 @@ public class JobApplicationService {
         }
     }
 
-    /**
-     * Update application distances in a new transaction to avoid conflicts
-     * @param applicationIds IDs of applications to update
-     * @param candidateId ID of the candidate
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateApplicationDistancesInNewTransaction(List<Long> applicationIds, Long candidateId) {
+    @Transactional
+    public Response<?> withdrawApplication(Long applicationId, WithdrawApplicationRequest request) {
         try {
-            // Fetch candidate with preferred location
-            Optional<Candidates> candidateOpt = candidateRepository.findById(candidateId);
-            if (candidateOpt.isEmpty() || candidateOpt.get().getPreferredLocation() == null) {
-                return;
+            String username = securityUtil.getCurrentUsername();
+            Optional<Candidates> candidateOpt = candidateRepository.findByUsername(username);
+
+            if (candidateOpt.isEmpty()) {
+                return new Response<>(HttpStatus.NOT_FOUND.value(), "Candidate not found", null);
+            }
+
+            Optional<JobApplication> applicationOpt = jobApplicationRepository.findById(applicationId);
+
+            if (applicationOpt.isEmpty()) {
+                return new Response<>(HttpStatus.NOT_FOUND.value(), "Application not found", null);
+            }
+
+            JobApplication application = applicationOpt.get();
+
+            // Security check - ensure the application belongs to the current candidate
+            if (!application.getCandidate().getId().equals(candidateOpt.get().getId())) {
+                return new Response<>(HttpStatus.FORBIDDEN.value(),
+                        "You do not have permission to withdraw this application", null);
+            }
+
+            // Get the previous status for the notification
+            JobApplication.ApplicationStatus oldStatus = application.getApplicationStatus();
+            boolean wasHired = (oldStatus == JobApplication.ApplicationStatus.HIRED);
+
+            // Check if the application is in HIRED status
+            if (wasHired) {
+                // Handle hired job withdrawal separately with reputation impact
+                Response<?> withdrawResponse = withdrawFromHiredJob(application, request.getWithdrawalReason());
+
+                // Send withdrawal notification to recruiter regardless of the withdrawal response
+                try {
+                    sendWithdrawalEmailToRecruiter(application, oldStatus, request.getWithdrawalReason());
+                } catch (Exception e) {
+                    log.error("Error sending withdrawal notification to recruiter: {}", e.getMessage(), e);
+                    // Continue with the process even if email fails
+                }
+
+                return withdrawResponse;
+            }
+
+            // For non-hired applications, proceed as before
+            application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
+            application.setWithdrawalReason(request.getWithdrawalReason());
+            jobApplicationRepository.save(application);
+
+            // Send withdrawal notification to recruiter
+            try {
+                sendWithdrawalEmailToRecruiter(application, oldStatus, request.getWithdrawalReason());
+            } catch (Exception e) {
+                log.error("Error sending withdrawal notification to recruiter: {}", e.getMessage(), e);
+                // Continue with the process even if email fails
+            }
+
+            return new Response<>(HttpStatus.OK.value(),
+                    "Application withdrawn successfully", null);
+
+        } catch (Exception e) {
+            log.error("Error withdrawing application: {}", e.getMessage(), e);
+            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Error withdrawing application: " + e.getMessage(), null);
+        }
+    }
+
+    /**
+     * Withdraw all applications in a group
+     *
+     * @param groupId The application group ID
+     * @return Response indicating success or failure
+     */
+    @Transactional
+    public Response<?> withdrawApplicationsByGroup(String groupId, WithdrawApplicationRequest request) {
+        try {
+            String username = securityUtil.getCurrentUsername();
+            Optional<Candidates> candidateOpt = candidateRepository.findByUsername(username);
+
+            if (candidateOpt.isEmpty()) {
+                return new Response<>(HttpStatus.NOT_FOUND.value(), "Candidate not found", null);
             }
 
             Candidates candidate = candidateOpt.get();
 
-            // Process each application in a separate transaction
-            for (Long applicationId : applicationIds) {
-                updateSingleApplicationDistance(applicationId, candidate);
-            }
-        } catch (Exception e) {
-            log.error("Error in updateApplicationDistancesInNewTransaction: {}", e.getMessage(), e);
-        }
-    }
+            // Find all applications with this group ID
+            List<JobApplication> applications = jobApplicationRepository
+                    .findByApplicationGroupIdAndCandidateId(groupId, candidate.getId());
 
-    /**
-     * Update a single application's distance in its own transaction
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void updateSingleApplicationDistance(Long applicationId, Candidates candidate) {
-        try {
-            // We need to load the entire object graph within this transaction
-            // Using a join fetch query to load job location and location in one go
-            JobApplication application = jobApplicationRepository.findApplicationWithLocationById(applicationId);
-
-            if (application == null) {
-                log.warn("Application with ID {} not found for distance update", applicationId);
-                return;
+            if (applications.isEmpty()) {
+                return new Response<>(HttpStatus.NOT_FOUND.value(),
+                        "No applications found for this group", null);
             }
 
-            // Get location from the fully loaded entities
-            Location jobLocationEntity = application.getJobLocation().getLocation();
+            // Check if any applications are in HIRED status
+            boolean anyHired = applications.stream()
+                    .anyMatch(app -> app.getApplicationStatus() == JobApplication.ApplicationStatus.HIRED);
 
-            // If location is still null, we can't proceed
-            if (jobLocationEntity == null) {
-                log.warn("Job location's location is null for application ID {}", applicationId);
-                return;
+            // Store the previous statuses of each application
+            Map<Long, JobApplication.ApplicationStatus> previousStatuses = applications.stream()
+                    .collect(Collectors.toMap(
+                            JobApplication::getId,
+                            JobApplication::getApplicationStatus
+                    ));
+
+            // Update all applications to WITHDRAWN status with the withdrawal reason
+            for (JobApplication application : applications) {
+                application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
+                application.setWithdrawalReason(request.getWithdrawalReason());
+                jobApplicationRepository.save(application);
+
+                // Update job location's filled positions count if it was HIRED
+                if (previousStatuses.get(application.getId()) == JobApplication.ApplicationStatus.HIRED) {
+                    JobLocation jobLocation = application.getJobLocation();
+                    if (jobLocation != null) {
+                        int currentFilled = jobLocation.getPositionsFilled();
+                        jobLocation.setPositionsFilled(Math.max(0, currentFilled - 1));
+
+                        // Update status based on positions filled
+                        if (jobLocation.getPositionsFilled() == 0) {
+                            jobLocation.setStatus(JobLocationStatus.OPEN);
+                        } else if (jobLocation.getPositionsFilled() < jobLocation.getPositionsNeeded()) {
+                            jobLocation.setStatus(JobLocationStatus.PARTIAL_FILLED);
+                        }
+
+                        jobLocationRepository.save(jobLocation);
+                    }
+                }
             }
 
-            // Calculate distance
-            Double distance = null;
-            if (candidate.getPreferredLocation() != null) {
-                distance = locationService.calculateDistance(
-                        candidate.getPreferredLocation().getLatitude().doubleValue(),
-                        candidate.getPreferredLocation().getLongitude().doubleValue(),
-                        jobLocationEntity.getLatitude().doubleValue(),
-                        jobLocationEntity.getLongitude().doubleValue()
+            // If any were in HIRED status, apply a SINGLE reputation penalty for the group
+            if (anyHired) {
+                candidateReputationService.applyHiredWithdrawalPenaltyForGroup(
+                        candidate.getId(),
+                        groupId,
+                        request.getWithdrawalReason()
                 );
             }
 
-            // Update the application
-            application.setDistanceToCandidate(distance);
-            jobApplicationRepository.save(application);
-
-            log.debug("Updated distance for application ID {}: {} km",
-                    applicationId,
-                    distance != null ? String.format("%.2f", distance) : "null");
-
-        } catch (Exception e) {
-            log.error("Error updating distance for application ID {}: {}",
-                    applicationId, e.getMessage(), e);
-        }
-    }
-
-    // Rest of the existing methods remain unchanged...
-
-    // Existing methods from the original class...
-    private Double calculateDistanceToCandidateLocation(Candidates candidate, Location jobLocation) {
-        // If candidate doesn't have a preferred location, return null
-        if (candidate.getPreferredLocation() == null) {
-            return null;
-        }
-
-        try {
-            // Get candidate's preferred location coordinates directly from the entity
-            BigDecimal candidateLatitude = null;
-            BigDecimal candidateLongitude = null;
-
-            // Get coordinates from the preferred location entity
-            if (candidate.getPreferredLocation() != null) {
-                candidateLatitude = candidate.getPreferredLocation().getLatitude();
-                candidateLongitude = candidate.getPreferredLocation().getLongitude();
+            // Send withdrawal notification to recruiters
+            try {
+                // Use the first application to get recruiter info
+                JobApplication firstApp = applications.get(0);
+                sendGroupWithdrawalEmailToRecruiter(applications, previousStatuses, request.getWithdrawalReason());
+            } catch (Exception e) {
+                log.error("Error sending group withdrawal notification to recruiter: {}", e.getMessage(), e);
+                // Continue with the process even if email fails
             }
 
-            // If we couldn't get coordinates, return null
-            if (candidateLatitude == null || candidateLongitude == null) {
-                return null;
+            if (anyHired) {
+                return new Response<>(HttpStatus.OK.value(),
+                        "All applications in the group withdrawn successfully. A reputation penalty has been applied.", null);
+            } else {
+                return new Response<>(HttpStatus.OK.value(),
+                        "All applications in the group withdrawn successfully", null);
             }
 
-            // Calculate distance using Haversine formula
-            return locationService.calculateDistance(
-                    candidateLatitude.doubleValue(), candidateLongitude.doubleValue(),
-                    jobLocation.getLatitude().doubleValue(), jobLocation.getLongitude().doubleValue()
-            );
         } catch (Exception e) {
-            log.error("Error calculating distance to candidate location: {}", e.getMessage(), e);
-            return null;
+            log.error("Error withdrawing applications: {}", e.getMessage(), e);
+            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Error withdrawing applications: " + e.getMessage(), null);
         }
     }
 
     /**
-     * Send job application confirmation email to the candidate
+     * Send email to recruiter about a new application
      *
-     * @param candidate the candidate who applied
-     * @param applications the list of job applications
+     * @param candidate    The candidate who applied
+     * @param applications The list of job applications
+     */
+    private void sendNewApplicationEmailToRecruiter(Candidates candidate, List<JobApplication> applications) {
+        try {
+            if (applications == null || applications.isEmpty()) {
+                log.warn("Unable to send new application email to recruiter: missing data");
+                return;
+            }
+
+            // Use the first application to get recruiter info
+            JobApplication firstApp = applications.get(0);
+            Recruiters recruiter = firstApp.getJobLocation().getJob().getProject().getRecruiter();
+
+            // Check if recruiter has an email
+            if (recruiter.getEmail() == null || recruiter.getEmail().isEmpty()) {
+                log.warn("Unable to send new application email: Recruiter email is missing");
+                return;
+            }
+
+            // Get job details
+            String jobTitle = firstApp.getJobLocation().getJob().getTitle();
+            String companyName = recruiter.getCompanyName();
+
+            // Format date
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String formattedDate = LocalDateTime.now().format(formatter);
+
+            // Get all location names
+            List<String> locationNames = applications.stream()
+                    .map(app -> app.getJobLocation().getLocation().getName())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // Get all work dates
+            List<LocalDate> workDates = applications.stream()
+                    .map(app -> app.getJobLocation().getJobScheduleDate().getWorkDate())
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // Format work dates
+            List<String> formattedWorkDates = workDates.stream()
+                    .map(date -> date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
+                    .collect(Collectors.toList());
+
+            // Prepare template variables
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("recruiterName", recruiter.getRecruiterRepName());
+            variables.put("candidateName", candidate.getName());
+            variables.put("candidateEmail", candidate.getEmail());
+            variables.put("candidatePhone", candidate.getPhoneNumber());
+            variables.put("candidateGender", candidate.getGender().toString());
+            variables.put("jobTitle", jobTitle);
+            variables.put("applicationDate", formattedDate);
+            variables.put("locations", String.join(", ", locationNames));
+            variables.put("isMultiLocation", locationNames.size() > 1);
+            variables.put("workDates", formattedWorkDates);
+
+            // Add candidate notes if available
+            String notes = firstApp.getNotes();
+            variables.put("hasCandidateNotes", notes != null && !notes.isEmpty());
+            variables.put("candidateNotes", notes);
+
+            // Add job stats information
+            int totalPositions = firstApp.getJobLocation().getJob().getJobSchedules().stream()
+                    .mapToInt(s -> s.getNumPositions())
+                    .sum();
+
+            int filledPositions = jobLocationRepository.findByJobId(firstApp.getJobLocation().getJob().getId()).stream()
+                    .mapToInt(loc -> loc.getPositionsFilled())
+                    .sum();
+
+            int openPositions = totalPositions - filledPositions;
+
+            // Count total and pending applications
+            Long jobId = firstApp.getJobLocation().getJob().getId();
+            Long totalApplications = jobApplicationRepository.countDistinctCandidatesByJobId(jobId);
+            Long pendingApplications = jobApplicationRepository.countDistinctCandidatesByJobIdAndStatus(
+                    jobId, JobApplication.ApplicationStatus.PENDING);
+
+            variables.put("showStats", true);
+            variables.put("totalApplications", totalApplications);
+            variables.put("pendingApplications", pendingApplications);
+            variables.put("openPositions", openPositions);
+
+            // Add application URL
+            String applicationUrl = "http://localhost:5173/recruiter/applications?jobId=" + jobId;
+            variables.put("applicationUrl", applicationUrl);
+
+            // We don't have AI scores yet at application time
+            variables.put("hasAiScores", false);
+
+            // Send email
+            boolean emailSent = emailService.sendTemplateEmail(
+                    recruiter.getEmail(),
+                    "New Job Application Received - " + jobTitle,
+                    "email/new-application-notification",
+                    variables
+            );
+
+            if (emailSent) {
+                log.info("New application notification email sent to recruiter: {}", recruiter.getEmail());
+            } else {
+                log.warn("Failed to send new application notification email to recruiter: {}", recruiter.getEmail());
+            }
+        } catch (Exception e) {
+            // Log error but don't interrupt the application process
+            log.error("Error sending new application notification to recruiter: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Send email to recruiter about a withdrawn application
+     *
+     * @param application      The job application being withdrawn
+     * @param previousStatus   The status before withdrawal
+     * @param withdrawalReason The reason for withdrawal
+     */
+    private void sendWithdrawalEmailToRecruiter(JobApplication application, JobApplication.ApplicationStatus previousStatus, String withdrawalReason) {
+        try {
+            if (application == null) {
+                log.warn("Unable to send withdrawal email to recruiter: missing application data");
+                return;
+            }
+
+            // Get recruiter info
+            Recruiters recruiter = application.getJobLocation().getJob().getProject().getRecruiter();
+
+            // Check if recruiter has an email
+            if (recruiter.getEmail() == null || recruiter.getEmail().isEmpty()) {
+                log.warn("Unable to send withdrawal email: Recruiter email is missing");
+                return;
+            }
+
+            // Get candidate and job details
+            Candidates candidate = application.getCandidate();
+            String jobTitle = application.getJobLocation().getJob().getTitle();
+
+            // Format dates
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String applicationDate = application.getApplicationDate().format(formatter);
+            String withdrawalDate = LocalDateTime.now().format(formatter);
+
+            // Check if the candidate was hired
+            boolean wasHired = (previousStatus == JobApplication.ApplicationStatus.HIRED);
+
+            // Get location name
+            String locationName = application.getJobLocation().getLocation().getName();
+
+            // Get work date
+            List<String> formattedWorkDates = new ArrayList<>();
+            if (application.getJobLocation().getJobScheduleDate() != null) {
+                LocalDate workDate = application.getJobLocation().getJobScheduleDate().getWorkDate();
+                formattedWorkDates.add(workDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+            }
+
+            // Prepare template variables
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("recruiterName", recruiter.getRecruiterRepName());
+            variables.put("candidateName", candidate.getName());
+            variables.put("candidateEmail", candidate.getEmail());
+            variables.put("candidatePhone", candidate.getPhoneNumber());
+            variables.put("jobTitle", jobTitle);
+            variables.put("applicationDate", applicationDate);
+            variables.put("withdrawalDate", withdrawalDate);
+            variables.put("previousStatus", previousStatus.toString());
+            variables.put("locations", locationName);
+            variables.put("isMultiLocation", false);
+            variables.put("workDates", formattedWorkDates);
+            variables.put("withdrawalReason", withdrawalReason);
+            variables.put("wasHired", wasHired);
+            variables.put("reputationImpact", wasHired);
+
+            // Set job management URL
+            Long jobId = application.getJobLocation().getJob().getId();
+            String jobManagementUrl = "http://localhost:5173/recruiter/applications?jobId=" + jobId;
+            variables.put("jobManagementUrl", jobManagementUrl);
+
+            // Send email
+            boolean emailSent = emailService.sendTemplateEmail(
+                    recruiter.getEmail(),
+                    "Application Withdrawn - " + jobTitle,
+                    "email/application-withdrawal-notification",
+                    variables
+            );
+
+            if (emailSent) {
+                log.info("Withdrawal notification email sent to recruiter: {}", recruiter.getEmail());
+            } else {
+                log.warn("Failed to send withdrawal notification email to recruiter: {}", recruiter.getEmail());
+            }
+        } catch (Exception e) {
+            // Log error but don't interrupt the withdrawal process
+            log.error("Error sending withdrawal notification to recruiter: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Send email to recruiter about a group of withdrawn applications
+     *
+     * @param applications     The job applications being withdrawn
+     * @param previousStatuses Map of application IDs to their previous statuses
+     * @param withdrawalReason The reason for withdrawal
+     */
+    private void sendGroupWithdrawalEmailToRecruiter(List<JobApplication> applications,
+                                                     Map<Long, JobApplication.ApplicationStatus> previousStatuses,
+                                                     String withdrawalReason) {
+        try {
+            if (applications == null || applications.isEmpty()) {
+                log.warn("Unable to send group withdrawal email to recruiter: missing application data");
+                return;
+            }
+
+            // Use the first application for basic info
+            JobApplication firstApp = applications.get(0);
+
+            // Get recruiter info
+            Recruiters recruiter = firstApp.getJobLocation().getJob().getProject().getRecruiter();
+
+            // Check if recruiter has an email
+            if (recruiter.getEmail() == null || recruiter.getEmail().isEmpty()) {
+                log.warn("Unable to send group withdrawal email: Recruiter email is missing");
+                return;
+            }
+
+            // Get candidate and job details
+            Candidates candidate = firstApp.getCandidate();
+            String jobTitle = firstApp.getJobLocation().getJob().getTitle();
+
+            // Format dates
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String applicationDate = firstApp.getApplicationDate().format(formatter);
+            String withdrawalDate = LocalDateTime.now().format(formatter);
+
+            // Check if any of the applications were in HIRED status
+            boolean anyHired = previousStatuses.values().stream()
+                    .anyMatch(status -> status == JobApplication.ApplicationStatus.HIRED);
+
+            // Get all location names
+            List<String> locationNames = applications.stream()
+                    .map(app -> app.getJobLocation().getLocation().getName())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // Get all work dates
+            List<String> formattedWorkDates = applications.stream()
+                    .filter(app -> app.getJobLocation().getJobScheduleDate() != null)
+                    .map(app -> app.getJobLocation().getJobScheduleDate().getWorkDate()
+                            .format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // Determine the overall previous status to display
+            // Prioritize HIRED > PENDING > others
+            JobApplication.ApplicationStatus displayStatus = previousStatuses.values().stream()
+                    .filter(status -> status == JobApplication.ApplicationStatus.HIRED)
+                    .findFirst()
+                    .orElse(previousStatuses.values().stream()
+                            .filter(status -> status == JobApplication.ApplicationStatus.PENDING)
+                            .findFirst()
+                            .orElse(previousStatuses.values().iterator().next()));
+
+            // Prepare template variables
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("recruiterName", recruiter.getRecruiterRepName());
+            variables.put("candidateName", candidate.getName());
+            variables.put("candidateEmail", candidate.getEmail());
+            variables.put("candidatePhone", candidate.getPhoneNumber());
+            variables.put("jobTitle", jobTitle);
+            variables.put("applicationDate", applicationDate);
+            variables.put("withdrawalDate", withdrawalDate);
+            variables.put("previousStatus", displayStatus.toString());
+            variables.put("locations", String.join(", ", locationNames));
+            variables.put("isMultiLocation", locationNames.size() > 1);
+            variables.put("workDates", formattedWorkDates);
+            variables.put("withdrawalReason", withdrawalReason);
+            variables.put("wasHired", anyHired);
+            variables.put("reputationImpact", anyHired);
+
+            // Set job management URL
+            Long jobId = firstApp.getJobLocation().getJob().getId();
+            String jobManagementUrl = "http://localhost:5173/recruiter/applications?jobId=" + jobId;
+            variables.put("jobManagementUrl", jobManagementUrl);
+
+            // Send email
+            boolean emailSent = emailService.sendTemplateEmail(
+                    recruiter.getEmail(),
+                    "Multiple Applications Withdrawn - " + jobTitle,
+                    "email/application-withdrawal-notification",
+                    variables
+            );
+
+            if (emailSent) {
+                log.info("Group withdrawal notification email sent to recruiter: {}", recruiter.getEmail());
+            } else {
+                log.warn("Failed to send group withdrawal notification email to recruiter: {}", recruiter.getEmail());
+            }
+        } catch (Exception e) {
+            // Log error but don't interrupt the withdrawal process
+            log.error("Error sending group withdrawal notification to recruiter: {}", e.getMessage(), e);
+        }
+    }
+
+    // Keep the existing methods below...
+    // This includes sendApplicationConfirmationEmail, updateApplicationDistancesInNewTransaction,
+    // withdrawFromHiredJob, and all other existing methods in the class
+
+    /**
+     * Send job application confirmation email to the candidate
      */
     private void sendApplicationConfirmationEmail(Candidates candidate, List<JobApplication> applications) {
         try {
@@ -377,6 +743,140 @@ public class JobApplicationService {
         }
     }
 
+    /**
+     * Update application distances in a new transaction to avoid conflicts
+     *
+     * @param applicationIds IDs of applications to update
+     * @param candidateId    ID of the candidate
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateApplicationDistancesInNewTransaction(List<Long> applicationIds, Long candidateId) {
+        try {
+            // Fetch candidate with preferred location
+            Optional<Candidates> candidateOpt = candidateRepository.findById(candidateId);
+            if (candidateOpt.isEmpty() || candidateOpt.get().getPreferredLocation() == null) {
+                return;
+            }
+
+            Candidates candidate = candidateOpt.get();
+
+            // Process each application in a separate transaction
+            for (Long applicationId : applicationIds) {
+                updateSingleApplicationDistance(applicationId, candidate);
+            }
+        } catch (Exception e) {
+            log.error("Error in updateApplicationDistancesInNewTransaction: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Update a single application's distance in its own transaction
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateSingleApplicationDistance(Long applicationId, Candidates candidate) {
+        try {
+            // We need to load the entire object graph within this transaction
+            // Using a join fetch query to load job location and location in one go
+            JobApplication application = jobApplicationRepository.findApplicationWithLocationById(applicationId);
+
+            if (application == null) {
+                log.warn("Application with ID {} not found for distance update", applicationId);
+                return;
+            }
+
+            // Get location from the fully loaded entities
+            Location jobLocationEntity = application.getJobLocation().getLocation();
+
+            // If location is still null, we can't proceed
+            if (jobLocationEntity == null) {
+                log.warn("Job location's location is null for application ID {}", applicationId);
+                return;
+            }
+
+            // Calculate distance
+            Double distance = null;
+            if (candidate.getPreferredLocation() != null) {
+                distance = locationService.calculateDistance(
+                        candidate.getPreferredLocation().getLatitude().doubleValue(),
+                        candidate.getPreferredLocation().getLongitude().doubleValue(),
+                        jobLocationEntity.getLatitude().doubleValue(),
+                        jobLocationEntity.getLongitude().doubleValue()
+                );
+            }
+
+            // Update the application
+            application.setDistanceToCandidate(distance);
+            jobApplicationRepository.save(application);
+
+            log.debug("Updated distance for application ID {}: {} km",
+                    applicationId,
+                    distance != null ? String.format("%.2f", distance) : "null");
+
+        } catch (Exception e) {
+            log.error("Error updating distance for application ID {}: {}",
+                    applicationId, e.getMessage(), e);
+        }
+    }
+
+    @Transactional
+    protected Response<?> withdrawFromHiredJob(JobApplication application, String withdrawalReason) {
+        try {
+            // Update the application status and withdrawal reason
+            application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
+            application.setWithdrawalReason(withdrawalReason);
+            jobApplicationRepository.save(application);
+
+            // Check if this application is part of a group
+            String groupId = application.getApplicationGroupId();
+
+            // Apply the reputation penalty
+            Long candidateId = application.getCandidate().getId();
+            Long jobApplicationId = application.getId();
+            String description = "Withdrew from hired job: " + withdrawalReason;
+
+            // If it's part of a group, use the group penalty method
+            Response<?> reputationResponse;
+            if (groupId != null) {
+                reputationResponse = candidateReputationService.applyHiredWithdrawalPenaltyForGroup(
+                        candidateId, groupId, withdrawalReason);
+            } else {
+                // For single applications, use the original method
+                reputationResponse = candidateReputationService.applyHiredWithdrawalPenalty(
+                        candidateId, jobApplicationId, description);
+            }
+
+            if (reputationResponse.getStatusCode() != 200) {
+                // Log the error but continue with the withdrawal
+                log.warn("Failed to apply reputation penalty: {}", reputationResponse.getMessage());
+            }
+
+            // Update job location's filled positions count
+            JobLocation jobLocation = application.getJobLocation();
+            if (jobLocation != null) {
+                int currentFilled = jobLocation.getPositionsFilled();
+                jobLocation.setPositionsFilled(Math.max(0, currentFilled - 1));
+
+                // Update status based on positions filled
+                if (jobLocation.getPositionsFilled() == 0) {
+                    jobLocation.setStatus(JobLocationStatus.OPEN);
+                } else if (jobLocation.getPositionsFilled() < jobLocation.getPositionsNeeded()) {
+                    jobLocation.setStatus(JobLocationStatus.PARTIAL_FILLED);
+                }
+
+                jobLocationRepository.save(jobLocation);
+            }
+
+            return new Response<>(HttpStatus.OK.value(),
+                    "Application withdrawn successfully. Note: A reputation penalty has been applied for withdrawing from a job you were hired for.", null);
+
+        } catch (Exception e) {
+            log.error("Error withdrawing from hired job: {}", e.getMessage(), e);
+            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
+                    "Error withdrawing from hired job: " + e.getMessage(), null);
+        }
+    }
+
+    // Other existing methods below like getApplicationDetails, getCandidateApplications, etc.
     public Response<List<JobApplicationResponseDTO>> getCandidateApplications() {
         try {
             String username = securityUtil.getCurrentUsername();
@@ -476,56 +976,6 @@ public class JobApplicationService {
         }
     }
 
-    @Transactional
-    public Response<?> withdrawApplication(Long applicationId, WithdrawApplicationRequest request) {
-        try {
-            String username = securityUtil.getCurrentUsername();
-            Optional<Candidates> candidateOpt = candidateRepository.findByUsername(username);
-
-            if (candidateOpt.isEmpty()) {
-                return new Response<>(HttpStatus.NOT_FOUND.value(), "Candidate not found", null);
-            }
-
-            Optional<JobApplication> applicationOpt = jobApplicationRepository.findById(applicationId);
-
-            if (applicationOpt.isEmpty()) {
-                return new Response<>(HttpStatus.NOT_FOUND.value(), "Application not found", null);
-            }
-
-            JobApplication application = applicationOpt.get();
-
-            // Security check - ensure the application belongs to the current candidate
-            if (!application.getCandidate().getId().equals(candidateOpt.get().getId())) {
-                return new Response<>(HttpStatus.FORBIDDEN.value(),
-                        "You do not have permission to withdraw this application", null);
-            }
-
-            // Check if the application is in HIRED status
-            if (application.getApplicationStatus() == JobApplication.ApplicationStatus.HIRED) {
-                // Handle hired job withdrawal separately with reputation impact
-                return withdrawFromHiredJob(application, request.getWithdrawalReason());
-            }
-
-            // For non-hired applications, proceed as before
-            application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
-            application.setWithdrawalReason(request.getWithdrawalReason());
-            jobApplicationRepository.save(application);
-
-            return new Response<>(HttpStatus.OK.value(),
-                    "Application withdrawn successfully", null);
-
-        } catch (Exception e) {
-            log.error("Error withdrawing application: {}", e.getMessage(), e);
-            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Error withdrawing application: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * Get applications by group ID
-     * @param groupId The application group ID
-     * @return Response with applications grouped by the group ID
-     */
     public Response<JobApplicationResponseDTO> getApplicationsByGroup(String groupId) {
         try {
             String username = securityUtil.getCurrentUsername();
@@ -562,143 +1012,6 @@ public class JobApplicationService {
         } catch (Exception e) {
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Error retrieving application group: " + e.getMessage(), null);
-        }
-    }
-
-    /**
-     * Withdraw all applications in a group
-     * @param groupId The application group ID
-     * @return Response indicating success or failure
-     */
-    // src/main/java/com/event/recruitment/intelligent_recruitment_system/service/job/JobApplicationService.java
-
-    @Transactional
-    public Response<?> withdrawApplicationsByGroup(String groupId, WithdrawApplicationRequest request) {
-        try {
-            String username = securityUtil.getCurrentUsername();
-            Optional<Candidates> candidateOpt = candidateRepository.findByUsername(username);
-
-            if (candidateOpt.isEmpty()) {
-                return new Response<>(HttpStatus.NOT_FOUND.value(), "Candidate not found", null);
-            }
-
-            Candidates candidate = candidateOpt.get();
-
-            // Find all applications with this group ID
-            List<JobApplication> applications = jobApplicationRepository
-                    .findByApplicationGroupIdAndCandidateId(groupId, candidate.getId());
-
-            if (applications.isEmpty()) {
-                return new Response<>(HttpStatus.NOT_FOUND.value(),
-                        "No applications found for this group", null);
-            }
-
-            // Check if any applications are in HIRED status
-            boolean anyHired = applications.stream()
-                    .anyMatch(app -> app.getApplicationStatus() == JobApplication.ApplicationStatus.HIRED);
-
-            // Update all applications to WITHDRAWN status with the withdrawal reason
-            for (JobApplication application : applications) {
-                application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
-                application.setWithdrawalReason(request.getWithdrawalReason());
-                jobApplicationRepository.save(application);
-
-                // Update job location's filled positions count if it was HIRED
-                if (application.getApplicationStatus() == JobApplication.ApplicationStatus.HIRED) {
-                    JobLocation jobLocation = application.getJobLocation();
-                    if (jobLocation != null) {
-                        int currentFilled = jobLocation.getPositionsFilled();
-                        jobLocation.setPositionsFilled(Math.max(0, currentFilled - 1));
-
-                        // Update status based on positions filled
-                        if (jobLocation.getPositionsFilled() == 0) {
-                            jobLocation.setStatus(JobLocationStatus.OPEN);
-                        } else if (jobLocation.getPositionsFilled() < jobLocation.getPositionsNeeded()) {
-                            jobLocation.setStatus(JobLocationStatus.PARTIAL_FILLED);
-                        }
-
-                        jobLocationRepository.save(jobLocation);
-                    }
-                }
-            }
-
-            // If any were in HIRED status, apply a SINGLE reputation penalty for the group
-            if (anyHired) {
-                candidateReputationService.applyHiredWithdrawalPenaltyForGroup(
-                        candidate.getId(),
-                        groupId,
-                        request.getWithdrawalReason()
-                );
-
-                return new Response<>(HttpStatus.OK.value(),
-                        "All applications in the group withdrawn successfully. A reputation penalty has been applied.", null);
-            }
-
-            return new Response<>(HttpStatus.OK.value(),
-                    "All applications in the group withdrawn successfully", null);
-
-        } catch (Exception e) {
-            log.error("Error withdrawing applications: {}", e.getMessage(), e);
-            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Error withdrawing applications: " + e.getMessage(), null);
-        }
-    }
-
-    @Transactional
-    protected Response<?> withdrawFromHiredJob(JobApplication application, String withdrawalReason) {
-        try {
-            // Update the application status and withdrawal reason
-            application.setApplicationStatus(JobApplication.ApplicationStatus.WITHDRAWN);
-            application.setWithdrawalReason(withdrawalReason);
-            jobApplicationRepository.save(application);
-
-            // Check if this application is part of a group
-            String groupId = application.getApplicationGroupId();
-
-            // Apply the reputation penalty
-            Long candidateId = application.getCandidate().getId();
-            Long jobApplicationId = application.getId();
-            String description = "Withdrew from hired job: " + withdrawalReason;
-
-            // If it's part of a group, use the group penalty method
-            Response<?> reputationResponse;
-            if (groupId != null) {
-                reputationResponse = candidateReputationService.applyHiredWithdrawalPenaltyForGroup(
-                        candidateId, groupId, withdrawalReason);
-            } else {
-                // For single applications, use the original method
-                reputationResponse = candidateReputationService.applyHiredWithdrawalPenalty(
-                        candidateId, jobApplicationId, description);
-            }
-
-            if (reputationResponse.getStatusCode() != 200) {
-                // Log the error but continue with the withdrawal
-                log.warn("Failed to apply reputation penalty: {}", reputationResponse.getMessage());
-            }
-
-            // Update job location's filled positions count
-            JobLocation jobLocation = application.getJobLocation();
-            if (jobLocation != null) {
-                int currentFilled = jobLocation.getPositionsFilled();
-                jobLocation.setPositionsFilled(Math.max(0, currentFilled - 1));
-
-                // Update status based on positions filled
-                if (jobLocation.getPositionsFilled() == 0) {
-                    jobLocation.setStatus(JobLocationStatus.OPEN);
-                } else if (jobLocation.getPositionsFilled() < jobLocation.getPositionsNeeded()) {
-                    jobLocation.setStatus(JobLocationStatus.PARTIAL_FILLED);
-                }
-
-                jobLocationRepository.save(jobLocation);
-            }
-
-            return new Response<>(HttpStatus.OK.value(),
-                    "Application withdrawn successfully. Note: A reputation penalty has been applied for withdrawing from a job you were hired for.", null);
-
-        } catch (Exception e) {
-            log.error("Error withdrawing from hired job: {}", e.getMessage(), e);
-            return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                    "Error withdrawing from hired job: " + e.getMessage(), null);
         }
     }
 

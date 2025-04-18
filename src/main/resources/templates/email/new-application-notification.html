@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Job Application - CrewConnect</title>
+    <style>
+        /* Base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f5f5f5;
+            margin: 0;
+            padding: 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Header styles */
+        .header {
+            background-color: #6C63FF;
+            padding: 30px 20px;
+            text-align: center;
+        }
+
+        .logo {
+            margin-bottom: 15px;
+        }
+
+        .logo-text {
+            font-family: 'Arial', sans-serif;
+            font-size: 32px;
+            font-weight: 800;
+            color: #ffffff;
+            letter-spacing: -1px;
+        }
+
+        .logo-text span {
+            font-weight: 400;
+        }
+
+        .header-title {
+            color: #ffffff;
+            font-size: 22px;
+            font-weight: 500;
+            margin-top: 10px;
+        }
+
+        /* Content styles */
+        .content {
+            padding: 30px;
+            background-color: #ffffff;
+        }
+
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 20px;
+        }
+
+        .highlight {
+            color: #6C63FF;
+            font-weight: 600;
+        }
+
+        p {
+            margin-bottom: 16px;
+            color: #4a4a4a;
+        }
+
+        /* Job details card */
+        .card {
+            background-color: #f9f9ff;
+            border-radius: 10px;
+            padding: 25px;
+            margin: 25px 0;
+            border-left: 4px solid #6C63FF;
+        }
+
+        .card h2 {
+            color: #444;
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            color: #6C63FF;
+        }
+
+        .detail-row {
+            display: flex;
+            margin-bottom: 15px;
+        }
+
+        .detail-label {
+            width: 120px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .detail-value {
+            flex: 1;
+            color: #333;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 5px 10px;
+            background-color: #FFEFD5;
+            color: #FF8C00;
+            border-radius: 50px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        /* Work dates */
+        .dates-container {
+            margin-top: 15px;
+        }
+
+        .date-list {
+            list-style-type: none;
+            padding-left: 0;
+        }
+
+        .date-list li {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        /* Action section */
+        .action-section {
+            margin: 30px 0;
+            text-align: center;
+        }
+
+        .action-btn {
+            display: inline-block;
+            background-color: #6C63FF;
+            color: #ffffff;
+            padding: 12px 25px;
+            text-decoration: none;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+
+        .action-btn:hover {
+            background-color: #5B54D9;
+        }
+
+        /* Footer styles */
+        .footer {
+            background-color: #f9f9ff;
+            padding: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #777;
+            border-top: 1px solid #eeeef9;
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <div class="logo">
+            <div class="logo-text">Crew<span>Connect</span></div>
+        </div>
+        <h1 class="header-title">New Job Application</h1>
+    </div>
+
+    <div class="content">
+        <p class="greeting">Hello <span th:text="${recruiterName}">Recruiter</span>,</p>
+
+        <p>
+            You have received a new application for the <span class="highlight" th:text="${jobTitle}">Position</span> position from <span class="highlight" th:text="${candidateName}">Candidate</span>.
+        </p>
+
+        <div class="card">
+            <h2>Application Details</h2>
+
+            <div class="detail-row">
+                <div class="detail-label">Position</div>
+                <div class="detail-value" th:text="${jobTitle}">Position</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Candidate</div>
+                <div class="detail-value" th:text="${candidateName}">Candidate Name</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Email</div>
+                <div class="detail-value" th:text="${candidateEmail}">candidate@example.com</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Phone</div>
+                <div class="detail-value" th:text="${candidatePhone}">+1234567890</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label" th:text="${isMultiLocation} ? 'Locations' : 'Location'">Location</div>
+                <div class="detail-value" th:text="${locations}">Location</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Applied On</div>
+                <div class="detail-value" th:text="${applicationDate}">Date</div>
+            </div>
+
+            <div class="detail-row">
+                <div class="detail-label">Status</div>
+                <div class="detail-value">
+                    <span class="status-badge">PENDING</span>
+                </div>
+            </div>
+
+            <div th:if="${workDates != null and not #lists.isEmpty(workDates)}">
+                <div class="detail-row">
+                    <div class="detail-label">Work Dates</div>
+                    <div class="detail-value dates-container">
+                        <ul class="date-list">
+                            <li th:each="date : ${workDates}" th:text="${date}">Work Date</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <div th:if="${candidateNotes != null and candidateNotes != ''}">
+                <div class="detail-row">
+                    <div class="detail-label">Notes</div>
+                    <div class="detail-value" th:text="${candidateNotes}">Candidate notes</div>
+                </div>
+            </div>
+        </div>
+
+        <p>Please review this application at your earliest convenience.</p>
+
+        <div class="action-section">
+            <a th:href="${applicationUrl}" class="action-btn">Review Application</a>
+        </div>
+
+        <p>Thanks for using CrewConnect to manage your recruitment needs.</p>
+
+        <p>Best regards,<br>The CrewConnect Team</p>
+    </div>
+
+    <div class="footer">
+        <p>&copy; 2025 CrewConnect. All rights reserved.</p>
+        <p>This is an automated email. Please do not reply to this message.</p>
+    </div>
+</div>
+</body>
+</html>

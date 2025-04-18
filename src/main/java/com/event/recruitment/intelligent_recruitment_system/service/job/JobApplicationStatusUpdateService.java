@@ -4,27 +4,23 @@ import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobApplication;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.JobLocation;
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.Jobs;
-import com.event.recruitment.intelligent_recruitment_system.model.enums.JobLocationStatus; // Import the provided enum
+import com.event.recruitment.intelligent_recruitment_system.model.enums.JobLocationStatus;
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobStatusType;
-// Assuming ApplicationStatus enum is defined within JobApplication like this:
-// public class JobApplication {
-//     public enum ApplicationStatus { PENDING, HIRED, REJECTED, CANCELLED /*, other statuses */ }
-//     // ... other fields and methods
-// }
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobApplicationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobLocationRepository;
 import com.event.recruitment.intelligent_recruitment_system.repository.job.JobRepository;
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
+import com.event.recruitment.intelligent_recruitment_system.service.email.EmailService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
-import java.util.Set; // Using Set for efficient lookup of distinct jobs/locations
+import java.time.format.DateTimeFormatter;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -36,7 +32,15 @@ public class JobApplicationStatusUpdateService {
     private final JobLocationRepository jobLocationRepository;
     private final JobRepository jobRepository;
     private final SecurityUtil securityUtil;
+    private final EmailService emailService; // Injected EmailService
 
+    /**
+     * Update the status of a job application with comprehensive checks and updates.
+     * Includes validation against same-status updates and allowed transitions.
+     * @param applicationId The ID of the job application
+     * @param status The new status to set (e.g., "HIRED", "REJECTED", "PENDING")
+     * @return Response indicating the result of the status update
+     */
     /**
      * Update the status of a job application with comprehensive checks and updates.
      * Includes validation against same-status updates and allowed transitions.
@@ -93,19 +97,16 @@ public class JobApplicationStatusUpdateService {
                             newStatus == JobApplication.ApplicationStatus.REJECTED);
                     break;
                 case HIRED:
-                    // Define transitions allowed FROM Hired (e.g., back to Pending, maybe Cancelled)
                     transitionAllowed = (newStatus == JobApplication.ApplicationStatus.PENDING ||
-                            newStatus == JobApplication.ApplicationStatus.CANCELLED); // Adjust if needed
+                            newStatus == JobApplication.ApplicationStatus.CANCELLED);
                     break;
                 case REJECTED:
                     transitionAllowed = (newStatus == JobApplication.ApplicationStatus.HIRED);
                     break;
                 case CANCELLED:
-                    // Allow transition from CANCELLED to PENDING
                     transitionAllowed = (newStatus == JobApplication.ApplicationStatus.PENDING);
                     break;
                 default:
-                    // By default, transitions from unlisted/other statuses are not allowed
                     transitionAllowed = false;
                     break;
             }
@@ -116,7 +117,6 @@ public class JobApplicationStatusUpdateService {
             }
             // --- END Validation ---
 
-
             // Update application status in the object
             application.setApplicationStatus(newStatus);
 
@@ -126,7 +126,7 @@ public class JobApplicationStatusUpdateService {
                 handleHiredStatus(jobLocation, application);
             } else if (oldStatus == JobApplication.ApplicationStatus.HIRED &&
                     (newStatus == JobApplication.ApplicationStatus.PENDING ||
-                            newStatus == JobApplication.ApplicationStatus.CANCELLED)) { // Check if CANCELLED should trigger un-hiring
+                            newStatus == JobApplication.ApplicationStatus.CANCELLED)) {
                 // Call handleUnhiredStatus only if the state changed FROM Hired TO a state that means not hired anymore
                 handleUnhiredStatus(jobLocation, application);
             } else if (newStatus == JobApplication.ApplicationStatus.REJECTED || newStatus == JobApplication.ApplicationStatus.PENDING) {
@@ -141,6 +141,9 @@ public class JobApplicationStatusUpdateService {
 
             // Check and update job status if needed
             checkAndUpdateJobStatus(jobLocation.getJob());
+
+            // Send email notification to the candidate
+            sendStatusUpdateEmail(application);
 
             return new Response<>(HttpStatus.OK.value(),
                     "Application status updated successfully to " + newStatus, null);
@@ -241,7 +244,6 @@ public class JobApplicationStatusUpdateService {
                 }
                 // --- END Validation ---
 
-
                 // --- Mark that an update is happening ---
                 updateOccurred = true; // Set flag because we passed validation and didn't 'continue'
 
@@ -268,12 +270,6 @@ public class JobApplicationStatusUpdateService {
             // --- ADDED: Check if any updates were made ---
             if (!updateOccurred) {
                 log.info("No applications required status update in group ID {} to status {}", groupId, newStatus);
-                // Return a success (200 OK) but with a different message,
-                // or return a 400 Bad Request if you prefer to treat this as an "error" or invalid request.
-                // Option 1: 200 OK with info message
-                // return new Response<>(HttpStatus.OK.value(),
-                //         "No applications required status update to " + newStatus, null);
-                // Option 2: 400 Bad Request
                 return new Response<>(HttpStatus.BAD_REQUEST.value(),
                         "All applications in the group are already in status " + newStatus, null);
             }
@@ -286,6 +282,14 @@ public class JobApplicationStatusUpdateService {
 
             for (Jobs job : jobsToUpdate) {
                 checkAndUpdateJobStatus(job);
+            }
+
+            // Send email notifications to all candidates in the group
+            for (JobApplication application : applications) {
+                // Only send emails to applications that were actually updated
+                if (application.getApplicationStatus() == newStatus) {
+                    sendStatusUpdateEmail(application);
+                }
             }
 
             // Return standard success message only if updates were actually made
@@ -307,6 +311,92 @@ public class JobApplicationStatusUpdateService {
         }
     }
 
+    /**
+     * Send email notification to the candidate about their application status update
+     * @param application The job application with the updated status
+     */
+    private void sendStatusUpdateEmail(JobApplication application) {
+        try {
+            // Get candidate email
+            String candidateEmail = application.getCandidate().getEmail();
+            if (candidateEmail == null || candidateEmail.isEmpty()) {
+                log.warn("Cannot send status update email: Candidate email is missing for application ID {}", application.getId());
+                return;
+            }
+
+            Jobs job = application.getJobLocation().getJob();
+            String jobTitle = job.getTitle();
+            String companyName = job.getProject().getRecruiter().getCompanyName();
+            JobApplication.ApplicationStatus newStatus = application.getApplicationStatus();
+
+            // Format date
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String updateDate = LocalDateTime.now().format(formatter);
+
+            // Get location(s)
+            String locationName = application.getJobLocation().getLocation().getName();
+
+            // Get work date(s)
+            List<String> workDateList = new ArrayList<>();
+            if (application.getJobLocation().getJobScheduleDate() != null) {
+                LocalDate workDate = application.getJobLocation().getJobScheduleDate().getWorkDate();
+                workDateList.add(workDate.format(DateTimeFormatter.ofPattern("dd MMM yyyy")));
+            }
+
+            // Prepare template variables
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("candidateName", application.getCandidate().getName());
+            variables.put("jobTitle", jobTitle);
+            variables.put("companyName", companyName);
+            variables.put("applicationStatus", newStatus.toString());
+            variables.put("updateDate", updateDate);
+            variables.put("locations", locationName);
+            variables.put("isMultiLocation", false); // Single application
+            variables.put("workDates", workDateList);
+
+            // Check if application is part of a group
+            if (application.getApplicationGroupId() != null && !application.getApplicationGroupId().isEmpty()) {
+                // Get all applications in the group to collect all locations and dates
+                List<JobApplication> groupApplications = jobApplicationRepository.findByApplicationGroupId(application.getApplicationGroupId());
+
+                // Extract location names
+                List<String> locationNames = groupApplications.stream()
+                        .map(app -> app.getJobLocation().getLocation().getName())
+                        .distinct()
+                        .collect(Collectors.toList());
+
+                // Extract work dates
+                List<String> formattedWorkDates = groupApplications.stream()
+                        .map(app -> app.getJobLocation().getJobScheduleDate())
+                        .filter(Objects::nonNull)
+                        .map(date -> date.getWorkDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
+                        .distinct()
+                        .collect(Collectors.toList());
+
+                // Update the variables
+                variables.put("locations", String.join(", ", locationNames));
+                variables.put("isMultiLocation", locationNames.size() > 1);
+                variables.put("workDates", formattedWorkDates);
+            }
+
+            // Send the email
+            boolean emailSent = emailService.sendTemplateEmail(
+                    candidateEmail,
+                    "Application Status Update: " + jobTitle,
+                    "email/application-status-update",
+                    variables
+            );
+
+            if (emailSent) {
+                log.info("Application status update email sent to: {} for application ID {}", candidateEmail, application.getId());
+            } else {
+                log.warn("Failed to send application status update email to: {} for application ID {}", candidateEmail, application.getId());
+            }
+        } catch (Exception e) {
+            // Log error but don't interrupt the status update process
+            log.error("Error sending application status update email: {}", e.getMessage(), e);
+        }
+    }
 
     // --- Helper methods ---
 
