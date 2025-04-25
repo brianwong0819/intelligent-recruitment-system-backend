@@ -41,13 +41,6 @@ public class JobApplicationStatusUpdateService {
      * @param status The new status to set (e.g., "HIRED", "REJECTED", "PENDING")
      * @return Response indicating the result of the status update
      */
-    /**
-     * Update the status of a job application with comprehensive checks and updates.
-     * Includes validation against same-status updates and allowed transitions.
-     * @param applicationId The ID of the job application
-     * @param status The new status to set (e.g., "HIRED", "REJECTED", "PENDING")
-     * @return Response indicating the result of the status update
-     */
     @Transactional
     public Response<?> updateApplicationStatus(Long applicationId, String status) {
         try {
@@ -142,8 +135,22 @@ public class JobApplicationStatusUpdateService {
             // Check and update job status if needed
             checkAndUpdateJobStatus(jobLocation.getJob());
 
-            // Send email notification to the candidate
-            sendStatusUpdateEmail(application);
+            // Check if this application is part of a group
+            if (application.getApplicationGroupId() != null && !application.getApplicationGroupId().isEmpty()) {
+                // For applications in a group, handle email at the group level to avoid duplicates
+                // Get all applications in this group that have been updated to the same status
+                List<JobApplication> groupApplications = jobApplicationRepository
+                        .findByApplicationGroupIdAndApplicationStatus(
+                                application.getApplicationGroupId(), newStatus);
+
+                // Send a single email for the entire group
+                if (!groupApplications.isEmpty()) {
+                    sendGroupStatusUpdateEmail(application.getApplicationGroupId(), newStatus);
+                }
+            } else {
+                // For individual applications (not part of a group), send individual email
+                sendStatusUpdateEmail(application);
+            }
 
             return new Response<>(HttpStatus.OK.value(),
                     "Application status updated successfully to " + newStatus, null);
@@ -284,12 +291,9 @@ public class JobApplicationStatusUpdateService {
                 checkAndUpdateJobStatus(job);
             }
 
-            // Send email notifications to all candidates in the group
-            for (JobApplication application : applications) {
-                // Only send emails to applications that were actually updated
-                if (application.getApplicationStatus() == newStatus) {
-                    sendStatusUpdateEmail(application);
-                }
+            // Send a single email notification for the entire group
+            if (updateOccurred) {
+                sendGroupStatusUpdateEmail(groupId, newStatus);
             }
 
             // Return standard success message only if updates were actually made
@@ -312,11 +316,102 @@ public class JobApplicationStatusUpdateService {
     }
 
     /**
+     * Send a single email notification for all applications in a group
+     * @param groupId The application group ID
+     * @param status The new application status
+     */
+    private void sendGroupStatusUpdateEmail(String groupId, JobApplication.ApplicationStatus status) {
+        try {
+            // Get all applications in the group
+            List<JobApplication> groupApplications = jobApplicationRepository.findByApplicationGroupId(groupId);
+
+            if (groupApplications.isEmpty()) {
+                log.warn("Cannot send group status update email: No applications found for group ID {}", groupId);
+                return;
+            }
+
+            // Get the first application to get candidate information
+            JobApplication firstApp = groupApplications.get(0);
+            String candidateEmail = firstApp.getCandidate().getEmail();
+
+            if (candidateEmail == null || candidateEmail.isEmpty()) {
+                log.warn("Cannot send group status update email: Candidate email is missing for group ID {}", groupId);
+                return;
+            }
+
+            // Get job information from the first application
+            Jobs job = firstApp.getJobLocation().getJob();
+            String jobTitle = job.getTitle();
+            String companyName = job.getProject().getRecruiter().getCompanyName();
+
+            // Format date
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+            String updateDate = LocalDateTime.now().format(formatter);
+
+            // Extract all location names
+            List<String> locationNames = groupApplications.stream()
+                    .map(app -> app.getJobLocation().getLocation().getName())
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            // Extract all work dates
+            List<String> formattedWorkDates = groupApplications.stream()
+                    .map(app -> app.getJobLocation().getJobScheduleDate())
+                    .filter(Objects::nonNull)
+                    .map(date -> date.getWorkDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
+                    .distinct()
+                    .sorted()
+                    .collect(Collectors.toList());
+
+            // Prepare template variables
+            Map<String, Object> variables = new HashMap<>();
+            variables.put("candidateName", firstApp.getCandidate().getName());
+            variables.put("jobTitle", jobTitle);
+            variables.put("companyName", companyName);
+            variables.put("applicationStatus", status.toString());
+            variables.put("updateDate", updateDate);
+            variables.put("locations", String.join(", ", locationNames));
+            variables.put("isMultiLocation", locationNames.size() > 1);
+            variables.put("workDates", formattedWorkDates);
+            variables.put("totalDates", formattedWorkDates.size());
+
+            // Include group ID as a reference
+            variables.put("groupId", groupId);
+
+            // Send the email
+            boolean emailSent = emailService.sendTemplateEmail(
+                    candidateEmail,
+                    "Application Status Update: " + jobTitle,
+                    "email/application-status-update",
+                    variables
+            );
+
+            if (emailSent) {
+                log.info("Group application status update email sent to: {} for group ID {}", candidateEmail, groupId);
+            } else {
+                log.warn("Failed to send group application status update email to: {} for group ID {}", candidateEmail, groupId);
+            }
+        } catch (Exception e) {
+            // Log error but don't interrupt the status update process
+            log.error("Error sending group application status update email: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
      * Send email notification to the candidate about their application status update
+     * This is used only for non-grouped applications
      * @param application The job application with the updated status
      */
     private void sendStatusUpdateEmail(JobApplication application) {
         try {
+            // Skip sending individual emails for applications that are part of a group
+            // Those are handled by sendGroupStatusUpdateEmail
+            if (application.getApplicationGroupId() != null && !application.getApplicationGroupId().isEmpty()) {
+                log.debug("Skipping individual email for application ID {} as it's part of group {}",
+                        application.getId(), application.getApplicationGroupId());
+                return;
+            }
+
             // Get candidate email
             String candidateEmail = application.getCandidate().getEmail();
             if (candidateEmail == null || candidateEmail.isEmpty()) {
@@ -333,10 +428,10 @@ public class JobApplicationStatusUpdateService {
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
             String updateDate = LocalDateTime.now().format(formatter);
 
-            // Get location(s)
+            // Get location name
             String locationName = application.getJobLocation().getLocation().getName();
 
-            // Get work date(s)
+            // Get work date
             List<String> workDateList = new ArrayList<>();
             if (application.getJobLocation().getJobScheduleDate() != null) {
                 LocalDate workDate = application.getJobLocation().getJobScheduleDate().getWorkDate();
@@ -351,33 +446,9 @@ public class JobApplicationStatusUpdateService {
             variables.put("applicationStatus", newStatus.toString());
             variables.put("updateDate", updateDate);
             variables.put("locations", locationName);
-            variables.put("isMultiLocation", false); // Single application
+            variables.put("isMultiLocation", false);
             variables.put("workDates", workDateList);
-
-            // Check if application is part of a group
-            if (application.getApplicationGroupId() != null && !application.getApplicationGroupId().isEmpty()) {
-                // Get all applications in the group to collect all locations and dates
-                List<JobApplication> groupApplications = jobApplicationRepository.findByApplicationGroupId(application.getApplicationGroupId());
-
-                // Extract location names
-                List<String> locationNames = groupApplications.stream()
-                        .map(app -> app.getJobLocation().getLocation().getName())
-                        .distinct()
-                        .collect(Collectors.toList());
-
-                // Extract work dates
-                List<String> formattedWorkDates = groupApplications.stream()
-                        .map(app -> app.getJobLocation().getJobScheduleDate())
-                        .filter(Objects::nonNull)
-                        .map(date -> date.getWorkDate().format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
-                        .distinct()
-                        .collect(Collectors.toList());
-
-                // Update the variables
-                variables.put("locations", String.join(", ", locationNames));
-                variables.put("isMultiLocation", locationNames.size() > 1);
-                variables.put("workDates", formattedWorkDates);
-            }
+            variables.put("totalDates", workDateList.size());
 
             // Send the email
             boolean emailSent = emailService.sendTemplateEmail(

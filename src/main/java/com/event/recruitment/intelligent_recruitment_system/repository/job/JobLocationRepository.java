@@ -63,4 +63,8 @@ public interface JobLocationRepository extends JpaRepository<JobLocation, Long> 
             "JOIN FETCH jl.location loc " +
             "WHERE jl.id = :id")
     Optional<JobLocation> findByIdWithJobDetails(@Param("id") Long id);
+
+    // In JobLocationRepository.java
+    @Query("SELECT COUNT(ja) FROM JobApplication ja WHERE ja.jobLocation.id = :locationId")
+    long countApplicationsForLocation(@Param("locationId") Long locationId);
 }

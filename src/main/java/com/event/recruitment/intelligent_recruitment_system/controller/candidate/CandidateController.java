@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 @RestController
-@RequestMapping("/api/candidates") // Changed from /api/candidate to /api/candidates
+@RequestMapping("/api/candidates")
 @Validated
 public class CandidateController {
 

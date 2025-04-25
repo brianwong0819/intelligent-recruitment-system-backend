@@ -42,7 +42,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // Regular authentication endpoints
                         .requestMatchers(
-                                "/api/candidate/register",
+                                "/api/candidates/register",
                                 "/api/recruiter/register",
                                 "/api/locations/search",
                                 "/api/locations/{id}",

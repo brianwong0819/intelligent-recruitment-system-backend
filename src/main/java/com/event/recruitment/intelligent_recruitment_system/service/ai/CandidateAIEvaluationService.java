@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/service/ai/CandidateAIEvaluationService.java
 package com.event.recruitment.intelligent_recruitment_system.service.ai;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
@@ -23,8 +22,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,8 +35,7 @@ public class CandidateAIEvaluationService {
     private final CandidateAvailabilityDateRepository availabilityDateRepository;
     private final JobApplicationRepository jobApplicationRepository;
     private final JobScheduleDateRepository jobScheduleDateRepository;
-    private final CandidateReputationRepository candidateReputationRepository; // New repository
-
+    private final CandidateReputationRepository candidateReputationRepository;
 
     /**
      * Collects all necessary data for AI evaluation of a candidate for job applications in a group
@@ -75,9 +72,19 @@ public class CandidateAIEvaluationService {
                 return new Response<>(404, "Job information missing", null);
             }
 
-            // Get the total job working days - count all dates for this job schedule
-            Long jobScheduleId = jobLocation.getJobScheduleDate().getJobSchedule().getId();
-            Integer totalJobWorkingDays = jobScheduleDateRepository.countByJobScheduleId(jobScheduleId);
+            // IMPROVED: Get the total job working days for the applied locations only
+            Set<Long> appliedLocationIds = applications.stream()
+                    .map(app -> app.getJobLocation().getLocation().getId())
+                    .collect(Collectors.toSet());
+
+            // Get all job locations for this job that match the locations the candidate applied for
+            Set<Long> jobLocationIdsForAppliedLocations = job.getJobLocations().stream()
+                    .filter(jl -> appliedLocationIds.contains(jl.getLocation().getId()))
+                    .map(JobLocation::getId)
+                    .collect(Collectors.toSet());
+
+            // Count only the schedule dates for the locations that the candidate applied for
+            int totalJobWorkingDays = jobScheduleDateRepository.countDistinctWorkDatesByJobLocations(jobLocationIdsForAppliedLocations);
 
             // Get candidate experiences
             List<CandidateExperience> experiences = experienceRepository.findByCandidateId(candidate.getId());
@@ -111,6 +118,12 @@ public class CandidateAIEvaluationService {
             if (avgDistance == 0.0) {
                 avgDistance = null; // Set to null if no distance data available
             }
+
+            // Get the distinct location names the candidate actually applied for
+            List<String> locationNames = applications.stream()
+                    .map(app -> app.getJobLocation().getLocation().getName())
+                    .distinct()
+                    .collect(Collectors.toList());
 
             // Build response DTO
             CandidateAIEvaluationDataDTO evaluationData = CandidateAIEvaluationDataDTO.builder()
@@ -160,22 +173,19 @@ public class CandidateAIEvaluationService {
                     .jobRequirements(job.getRequirements())
                     .salaryType(job.getSalaryType() != null ? job.getSalaryType().name() : null)
 
-                    // Location info - collect all locations
-                    .locationNames(applications.stream()
-                            .map(app -> app.getJobLocation().getLocation().getName())
-                            .distinct()
-                            .collect(Collectors.toList()))
+                    // Location info - collect only the locations actually applied for
+                    .locationNames(locationNames)
                     .applicationDate(firstApplication.getApplicationDate())
                     .distanceToCandidate(avgDistance)
 
-                    // Work dates info
+                    // Work dates info - use the correct values
                     .appliedWorkDates(appliedWorkDates.stream()
                             .map(date -> date.format(formatter))
                             .collect(Collectors.toList()))
                     .totalWorkDays(appliedWorkDates.size())
                     .totalJobWorkingDays(totalJobWorkingDays)
 
-                    // Reputation score - new field
+                    // Reputation score
                     .reputationScore(reputationScore)
 
                     .build();
@@ -229,9 +239,17 @@ public class CandidateAIEvaluationService {
                 return new Response<>(404, "Job information missing", null);
             }
 
-            // Get the total job working days - count all dates for this job schedule
-            Long jobScheduleId = jobLocation.getJobScheduleDate().getJobSchedule().getId();
-            Integer totalJobWorkingDays = jobScheduleDateRepository.countByJobScheduleId(jobScheduleId);
+            // IMPROVED: Get total job working days for this specific location only
+            Long locationId = jobLocation.getLocation().getId();
+
+            // Get all job locations for this job that match the location the candidate applied for
+            Set<Long> jobLocationIdsForLocation = job.getJobLocations().stream()
+                    .filter(jl -> jl.getLocation().getId().equals(locationId))
+                    .map(JobLocation::getId)
+                    .collect(Collectors.toSet());
+
+            // Count only the schedule dates for the location that the candidate applied for
+            int totalJobWorkingDays = jobScheduleDateRepository.countDistinctWorkDatesByJobLocations(jobLocationIdsForLocation);
 
             // Get candidate experiences
             List<CandidateExperience> experiences = experienceRepository.findByCandidateId(candidate.getId());
@@ -296,17 +314,17 @@ public class CandidateAIEvaluationService {
                     .jobRequirements(job.getRequirements())
                     .salaryType(job.getSalaryType() != null ? job.getSalaryType().name() : null)
 
-                    // Location info
+                    // Location info - use the single location the candidate applied for
                     .locationNames(List.of(application.getJobLocation().getLocation().getName()))
                     .applicationDate(application.getApplicationDate())
                     .distanceToCandidate(application.getDistanceToCandidate())
 
-                    // Work dates info
+                    // Work dates info - use the correct values
                     .appliedWorkDates(List.of(workDate.format(formatter)))
                     .totalWorkDays(1)
                     .totalJobWorkingDays(totalJobWorkingDays)
 
-                    // Reputation score - new field
+                    // Reputation score
                     .reputationScore(reputationScore)
 
                     .build();

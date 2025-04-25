@@ -185,4 +185,12 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
             "WHERE ja.applicationStatus = 'HIRED' " +
             "AND sd.workDate = :targetDate")
     List<JobApplication> findUpcomingHiredApplications(@Param("targetDate") LocalDate targetDate);
+
+    /**
+     * Find applications by group ID and application status
+     * @param applicationGroupId The application group ID
+     * @param applicationStatus The application status
+     * @return List of job applications with the specified group ID and status
+     */
+    List<JobApplication> findByApplicationGroupIdAndApplicationStatus(String applicationGroupId, JobApplication.ApplicationStatus applicationStatus);
 }

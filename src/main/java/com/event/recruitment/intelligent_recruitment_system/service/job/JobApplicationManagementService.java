@@ -117,31 +117,6 @@ public class JobApplicationManagementService {
                 groupedApplications.get(groupKey).add(app);
             }
 
-            // Collect unique location names with dates for each group
-            Map<String, Set<LocalDateTime>> locationDatesMap = new LinkedHashMap<>();
-
-            for (List<JobApplication> apps : groupedApplications.values()) {
-                for (JobApplication app : apps) {
-                    JobLocation jobLocation = app.getJobLocation();
-                    String locationName = jobLocation.getLocation().getName();
-
-                    // Get work date from schedule date if available
-                    LocalDateTime workDate = getWorkDateForJobLocation(jobLocation);
-
-                    // Use computeIfAbsent to create a new Set if the location doesn't exist
-                    locationDatesMap.computeIfAbsent(locationName, k -> new LinkedHashSet<>()).add(workDate);
-                }
-            }
-
-            // Convert Set of dates to a map with sorted dates for each location
-            Map<String, List<LocalDateTime>> flattenedLocationDatesMap = locationDatesMap.entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry -> entry.getValue().stream()
-                                    .sorted()
-                                    .collect(Collectors.toList())
-                    ));
-
             // Sort groups by the criteria
             List<Map.Entry<String, List<JobApplication>>> sortedGroups = new ArrayList<>(groupedApplications.entrySet());
 
@@ -186,6 +161,29 @@ public class JobApplicationManagementService {
                     String groupId = entry.getKey();
                     List<JobApplication> apps = entry.getValue();
                     JobApplication primaryApp = apps.get(0);
+
+                    // FIX: Collect only the location-date pairs that the candidate actually applied for
+                    Map<String, List<LocalDateTime>> appliedLocationDatesMap = new LinkedHashMap<>();
+
+                    // Process only this candidate's actual applications
+                    for (JobApplication app : apps) {
+                        JobLocation jobLocation = app.getJobLocation();
+                        String locationName = jobLocation.getLocation().getName();
+
+                        // Get work date from schedule date if available
+                        LocalDateTime workDate = getWorkDateForJobLocation(jobLocation);
+
+                        // Add to the map, creating a new list if this location hasn't been seen yet
+                        if (!appliedLocationDatesMap.containsKey(locationName)) {
+                            appliedLocationDatesMap.put(locationName, new ArrayList<>());
+                        }
+                        appliedLocationDatesMap.get(locationName).add(workDate);
+                    }
+
+                    // Sort the dates for each location
+                    for (Map.Entry<String, List<LocalDateTime>> locationEntry : appliedLocationDatesMap.entrySet()) {
+                        Collections.sort(locationEntry.getValue());
+                    }
 
                     // Get AI Rating using either application ID or group ID
                     Optional<AIRating> aiRatingOpt;
@@ -234,7 +232,7 @@ public class JobApplicationManagementService {
                             .map(AIRating::getAiFeedback)
                             .orElse(null);
 
-                    // Create applicant summary
+                    // Create applicant summary with the correct location dates map
                     ApplicantSummaryDTO summary = ApplicantSummaryDTO.builder()
                             .id(primaryApp.getId())
                             .candidateId(primaryApp.getCandidate().getId())
@@ -245,8 +243,8 @@ public class JobApplicationManagementService {
                             .gender(primaryApp.getCandidate().getGender().toString())
                             .applicationStatus(primaryApp.getApplicationStatus().toString())
                             .applicationDate(primaryApp.getApplicationDate())
-                            .locationNames(new ArrayList<>(flattenedLocationDatesMap.keySet()))
-                            .locationWorkDates(flattenedLocationDatesMap)
+                            .locationNames(new ArrayList<>(appliedLocationDatesMap.keySet()))
+                            .locationWorkDates(appliedLocationDatesMap)
                             .finalScore(finalScore)
                             .experienceScore(experienceScore)
                             .skillsScore(skillsScore)
@@ -530,31 +528,6 @@ public class JobApplicationManagementService {
                 groupedApplications.get(groupKey).add(app);
             }
 
-            // Collect unique location names with dates for each group
-            Map<String, Set<LocalDateTime>> locationDatesMap = new LinkedHashMap<>();
-
-            for (List<JobApplication> apps : groupedApplications.values()) {
-                for (JobApplication app : apps) {
-                    JobLocation jobLocation = app.getJobLocation();
-                    String locationName = jobLocation.getLocation().getName();
-
-                    // Get work date from schedule date if available
-                    LocalDateTime workDate = getWorkDateForJobLocation(jobLocation);
-
-                    // Use computeIfAbsent to create a new Set if the location doesn't exist
-                    locationDatesMap.computeIfAbsent(locationName, k -> new LinkedHashSet<>()).add(workDate);
-                }
-            }
-
-            // Convert Set of dates to a map with sorted dates for each location
-            Map<String, List<LocalDateTime>> flattenedLocationDatesMap = locationDatesMap.entrySet().stream()
-                    .collect(Collectors.toMap(
-                            Map.Entry::getKey,
-                            entry -> entry.getValue().stream()
-                                    .sorted()
-                                    .collect(Collectors.toList())
-                    ));
-
             // Sort groups by the criteria
             List<Map.Entry<String, List<JobApplication>>> sortedGroups = new ArrayList<>(groupedApplications.entrySet());
 
@@ -601,6 +574,29 @@ public class JobApplicationManagementService {
                     String groupId = entry.getKey();
                     List<JobApplication> apps = entry.getValue();
                     JobApplication primaryApp = apps.get(0);
+
+                    // FIX: Collect only the location-date pairs that the candidate actually applied for
+                    Map<String, List<LocalDateTime>> appliedLocationDatesMap = new LinkedHashMap<>();
+
+                    // Process only this candidate's actual applications
+                    for (JobApplication app : apps) {
+                        JobLocation jobLocation = app.getJobLocation();
+                        String locationName = jobLocation.getLocation().getName();
+
+                        // Get work date from schedule date if available
+                        LocalDateTime workDate = getWorkDateForJobLocation(jobLocation);
+
+                        // Add to the map, creating a new list if this location hasn't been seen yet
+                        if (!appliedLocationDatesMap.containsKey(locationName)) {
+                            appliedLocationDatesMap.put(locationName, new ArrayList<>());
+                        }
+                        appliedLocationDatesMap.get(locationName).add(workDate);
+                    }
+
+                    // Sort the dates for each location
+                    for (Map.Entry<String, List<LocalDateTime>> locationEntry : appliedLocationDatesMap.entrySet()) {
+                        Collections.sort(locationEntry.getValue());
+                    }
 
                     // Get AI Rating using either application ID or group ID
                     Optional<AIRating> aiRatingOpt;
@@ -649,7 +645,7 @@ public class JobApplicationManagementService {
                             .map(AIRating::getAiFeedback)
                             .orElse(null);
 
-                    // Create applicant summary
+                    // Create applicant summary with the correct location dates map
                     ApplicantSummaryDTO summary = ApplicantSummaryDTO.builder()
                             .id(primaryApp.getId())
                             .candidateId(primaryApp.getCandidate().getId())
@@ -660,8 +656,8 @@ public class JobApplicationManagementService {
                             .gender(primaryApp.getCandidate().getGender().toString())
                             .applicationStatus(primaryApp.getApplicationStatus().toString())
                             .applicationDate(primaryApp.getApplicationDate())
-                            .locationNames(new ArrayList<>(flattenedLocationDatesMap.keySet()))
-                            .locationWorkDates(flattenedLocationDatesMap)
+                            .locationNames(new ArrayList<>(appliedLocationDatesMap.keySet()))
+                            .locationWorkDates(appliedLocationDatesMap)
                             .finalScore(finalScore)
                             .experienceScore(experienceScore)
                             .skillsScore(skillsScore)
@@ -672,6 +668,7 @@ public class JobApplicationManagementService {
                             .aiFeedback(aiFeedback)
                             .distanceToJob(primaryApp.getDistanceToCandidate())
                             .applicationGroupId(groupId.startsWith("single_") ? null : groupId)
+                            .notes(primaryApp.getNotes())
                             .withdrawalReason(primaryApp.getWithdrawalReason())
                             .build();
 
@@ -794,5 +791,4 @@ public class JobApplicationManagementService {
             return false;
         }
     }
-
 }

@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Set;
 
 @Repository
 public interface JobScheduleDateRepository extends JpaRepository<JobScheduleDate, Long> {
@@ -37,4 +38,41 @@ public interface JobScheduleDateRepository extends JpaRepository<JobScheduleDate
      * @return Count of schedule dates
      */
     Integer countByJobScheduleId(Long jobScheduleId);
+
+    /**
+     * Count the number of distinct work dates for a set of job locations
+     * This counts only the unique dates associated with the specified job locations,
+     * providing an accurate count for specific locations rather than the entire job
+     *
+     * @param jobLocationIds Set of job location IDs
+     * @return Count of distinct dates
+     */
+    @Query("SELECT COUNT(DISTINCT jsd.workDate) FROM JobScheduleDate jsd " +
+            "JOIN JobLocation jl ON jl.jobScheduleDate.id = jsd.id " +
+            "WHERE jl.id IN :jobLocationIds")
+    Integer countDistinctWorkDatesByJobLocations(@Param("jobLocationIds") Set<Long> jobLocationIds);
+
+    /**
+     * Find all dates for a job
+     *
+     * @param jobId The job ID
+     * @return List of work dates
+     */
+    @Query("SELECT DISTINCT jsd.workDate FROM JobScheduleDate jsd " +
+            "JOIN jsd.jobSchedule js " +
+            "WHERE js.job.id = :jobId " +
+            "ORDER BY jsd.workDate ASC")
+    List<LocalDate> findAllDatesByJobId(@Param("jobId") Long jobId);
+
+    /**
+     * Find all dates for specific job locations
+     *
+     * @param jobLocationIds Set of job location IDs
+     * @return List of work dates
+     */
+    @Query("SELECT DISTINCT jsd.workDate FROM JobScheduleDate jsd " +
+            "JOIN JobLocation jl ON jl.jobScheduleDate.id = jsd.id " +
+            "WHERE jl.id IN :jobLocationIds " +
+            "ORDER BY jsd.workDate ASC")
+    List<LocalDate> findAllDatesByJobLocationIds(@Param("jobLocationIds") Set<Long> jobLocationIds);
 }

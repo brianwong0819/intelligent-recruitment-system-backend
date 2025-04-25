@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/service/job/JobScheduleService.java
-
 package com.event.recruitment.intelligent_recruitment_system.service.job;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
@@ -24,7 +22,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -193,7 +191,7 @@ public class JobScheduleService {
     @Transactional
     public Response<JobScheduleResponseDTO> updateJobSchedule(Long scheduleId, CreateJobScheduleRequest request) {
         // Find existing job schedule
-        JobSchedule existingSchedule = jobScheduleRepository.findById(scheduleId)
+        JobSchedule existingSchedule = jobScheduleRepository.findByIdWithDetails(scheduleId)
                 .orElseThrow(() -> new RuntimeException("Job schedule not found"));
 
         // Validate job exists and belongs to current recruiter
@@ -211,62 +209,207 @@ public class JobScheduleService {
         existingSchedule.setHoursOfRestTime(request.getHoursOfRestTime());
         existingSchedule.setNumPositions(request.getNumPositions());
 
-        // Clear existing schedule dates
-        existingSchedule.getScheduleDates().clear();
+        // Save updated schedule basic info
+        existingSchedule = jobScheduleRepository.save(existingSchedule);
 
-        // Create and save new schedule dates
-        if (request.getScheduleDates() != null) {
-            JobSchedule finalExistingSchedule = existingSchedule;
-            request.getScheduleDates().forEach(dateRequest -> {
-                // Create schedule date
-                JobScheduleDate scheduleDate = JobScheduleDate.builder()
-                        .jobSchedule(finalExistingSchedule)
-                        .workDate(dateRequest.getWorkDate())
+        // Handle schedule dates update safely
+        updateScheduleDates(existingSchedule, request.getScheduleDates(), job);
+
+        // Fetch the updated schedule with all relations
+        existingSchedule = jobScheduleRepository.findByIdWithDetails(scheduleId)
+                .orElseThrow(() -> new RuntimeException("Job schedule not found after update"));
+
+        // Convert and return response
+        JobScheduleResponseDTO responseDTO = jobScheduleMapper.toResponseDTO(existingSchedule);
+        return new Response<>(HttpStatus.OK.value(), "Job schedule updated successfully", responseDTO);
+    }
+
+    /**
+     * Update schedule dates and locations while preserving existing applications
+     * @param existingSchedule Existing job schedule
+     * @param newScheduleDates New schedule date requests
+     * @param job The job
+     */
+    private void updateScheduleDates(JobSchedule existingSchedule,
+                                     List<CreateJobScheduleRequest.CreateJobScheduleDateRequest> newScheduleDates,
+                                     Jobs job) {
+        if (newScheduleDates == null || newScheduleDates.isEmpty()) {
+            // If no new dates are provided, do nothing to existing dates
+            return;
+        }
+
+        // Create a map of existing schedule dates by work date for easy lookup
+        Map<LocalDate, JobScheduleDate> existingDatesMap = existingSchedule.getScheduleDates().stream()
+                .collect(Collectors.toMap(JobScheduleDate::getWorkDate, date -> date, (existing, replacement) -> existing));
+
+        // Create a set to track processed dates
+        Set<LocalDate> processedDates = new HashSet<>();
+
+        // Process new schedule date requests
+        for (CreateJobScheduleRequest.CreateJobScheduleDateRequest dateRequest : newScheduleDates) {
+            LocalDate workDate = dateRequest.getWorkDate();
+            processedDates.add(workDate);
+
+            if (existingDatesMap.containsKey(workDate)) {
+                // Update existing schedule date
+                JobScheduleDate existingDate = existingDatesMap.get(workDate);
+                updateJobLocations(existingDate, dateRequest.getJobLocations(), job);
+            } else {
+                // Create new schedule date
+                JobScheduleDate newDate = JobScheduleDate.builder()
+                        .jobSchedule(existingSchedule)
+                        .workDate(workDate)
                         .build();
 
-                // Create job locations for this schedule date
+                // Save the new date first to get an ID
+                JobScheduleDate savedDate = jobScheduleDateRepository.save(newDate);
+
+                // Create new job locations for this date
                 if (dateRequest.getJobLocations() != null) {
-                    List<JobLocation> jobLocations = dateRequest.getJobLocations().stream()
+                    final JobScheduleDate finalSavedDate = savedDate; // Create final reference for lambda
+                    List<JobLocation> newLocations = dateRequest.getJobLocations().stream()
                             .map(locationRequest -> {
-                                // Validate location exists
                                 Location location = locationsRepository.findById(locationRequest.getLocationId())
                                         .orElseThrow(() -> new RuntimeException("Location not found"));
 
-                                // Determine positions needed
                                 Integer positionsNeeded = locationRequest.getPositionsNeeded() != null
                                         ? locationRequest.getPositionsNeeded()
-                                        : finalExistingSchedule.getNumPositions();
+                                        : existingSchedule.getNumPositions();
 
-                                // Create job location
-                                JobLocation jobLocation = JobLocation.builder()
+                                return JobLocation.builder()
                                         .job(job)
                                         .location(location)
-                                        .jobScheduleDate(scheduleDate)
+                                        .jobScheduleDate(finalSavedDate)
                                         .positionsNeeded(positionsNeeded)
                                         .positionsFilled(0)
                                         .status(JobLocationStatus.OPEN)
                                         .notes(locationRequest.getNotes())
                                         .build();
-
-                                return jobLocation;
                             })
                             .collect(Collectors.toList());
 
-                    // Set job locations for the schedule date
-                    scheduleDate.setJobLocations(jobLocations);
+                    // Save the new locations
+                    jobLocationRepository.saveAll(newLocations);
                 }
-
-                // Add schedule date to existing schedule
-                finalExistingSchedule.getScheduleDates().add(scheduleDate);
-            });
+            }
         }
 
-        // Save updated schedule
-        existingSchedule = jobScheduleRepository.save(existingSchedule);
+        // For existing dates not in the new request, preserve if they have applications,
+        // otherwise delete them
+        existingDatesMap.forEach((date, existingDate) -> {
+            if (!processedDates.contains(date)) {
+                // Check if date can be safely deleted (no locations with applications)
+                boolean canDelete = true;
+                for (JobLocation location : existingDate.getJobLocations()) {
+                    long applicationCount = jobLocationRepository.countApplicationsForLocation(location.getId());
+                    if (applicationCount > 0) {
+                        canDelete = false;
+                        break;
+                    }
+                }
 
-        // Convert and return response
-        JobScheduleResponseDTO responseDTO = jobScheduleMapper.toResponseDTO(existingSchedule);
-        return new Response<>(HttpStatus.OK.value(), "Job schedule updated successfully", responseDTO);
+                if (canDelete) {
+                    // Delete the date and its locations
+                    jobScheduleDateRepository.delete(existingDate);
+                } else {
+                    // Keep the date as is
+                    // Optionally mark it as inactive if necessary
+                }
+            }
+        });
+    }
+
+    /**
+     * Update job locations for an existing schedule date
+     * @param existingDate Existing job schedule date
+     * @param newLocationRequests New location requests
+     * @param job The job
+     */
+    private void updateJobLocations(JobScheduleDate existingDate,
+                                    List<CreateJobScheduleRequest.CreateJobLocationRequest> newLocationRequests,
+                                    Jobs job) {
+        if (newLocationRequests == null || newLocationRequests.isEmpty()) {
+            // If no new locations are provided, keep existing ones
+            return;
+        }
+
+        // Create a map of existing locations by location id for easy lookup
+        Map<Long, JobLocation> existingLocationsMap = existingDate.getJobLocations().stream()
+                .collect(Collectors.toMap(loc -> loc.getLocation().getId(), loc -> loc, (existing, replacement) -> existing));
+
+        // Create a set to track processed location ids
+        Set<Long> processedLocationIds = new HashSet<>();
+
+        // Process new location requests
+        for (CreateJobScheduleRequest.CreateJobLocationRequest locationRequest : newLocationRequests) {
+            Long locationId = locationRequest.getLocationId();
+            processedLocationIds.add(locationId);
+
+            if (existingLocationsMap.containsKey(locationId)) {
+                // Update existing job location
+                JobLocation existingLocation = existingLocationsMap.get(locationId);
+
+                // Check if applications exist for this location
+                long applicationCount = jobLocationRepository.countApplicationsForLocation(existingLocation.getId());
+
+                // If there are applications, only update certain fields
+                if (applicationCount > 0) {
+                    // Only update fields that don't affect existing applications
+                    if (locationRequest.getNotes() != null) {
+                        existingLocation.setNotes(locationRequest.getNotes());
+                    }
+                    // For positions needed, be careful about reducing below filled positions
+                    if (locationRequest.getPositionsNeeded() != null) {
+                        // Make sure we don't reduce below positions already filled
+                        existingLocation.setPositionsNeeded(
+                                Math.max(locationRequest.getPositionsNeeded(), existingLocation.getPositionsFilled())
+                        );
+                    }
+                    jobLocationRepository.save(existingLocation);
+                } else {
+                    // No applications, can fully update
+                    existingLocation.setPositionsNeeded(locationRequest.getPositionsNeeded());
+                    existingLocation.setNotes(locationRequest.getNotes());
+                    jobLocationRepository.save(existingLocation);
+                }
+            } else {
+                // Create new job location
+                Location location = locationsRepository.findById(locationId)
+                        .orElseThrow(() -> new RuntimeException("Location not found"));
+
+                Integer positionsNeeded = locationRequest.getPositionsNeeded() != null
+                        ? locationRequest.getPositionsNeeded()
+                        : existingDate.getJobSchedule().getNumPositions();
+
+                JobLocation newLocation = JobLocation.builder()
+                        .job(job)
+                        .location(location)
+                        .jobScheduleDate(existingDate)
+                        .positionsNeeded(positionsNeeded)
+                        .positionsFilled(0)
+                        .status(JobLocationStatus.OPEN)
+                        .notes(locationRequest.getNotes())
+                        .build();
+
+                jobLocationRepository.save(newLocation);
+            }
+        }
+
+        // For existing locations not in the new request, check if they can be safely deleted
+        existingLocationsMap.forEach((locId, existingLocation) -> {
+            if (!processedLocationIds.contains(locId)) {
+                // Check if the location has applications
+                long applicationCount = jobLocationRepository.countApplicationsForLocation(existingLocation.getId());
+
+                if (applicationCount == 0) {
+                    // No applications, safe to delete
+                    jobLocationRepository.delete(existingLocation);
+                } else {
+                    // Has applications, keep it
+                    // Optionally mark it as inactive or deprecated
+                }
+            }
+        });
     }
 
     /**
@@ -279,6 +422,16 @@ public class JobScheduleService {
         // Find existing job schedule
         JobSchedule existingSchedule = jobScheduleRepository.findById(scheduleId)
                 .orElseThrow(() -> new RuntimeException("Job schedule not found"));
+
+        // Check if any job locations have applications
+        boolean hasApplications = existingSchedule.getScheduleDates().stream()
+                .flatMap(date -> date.getJobLocations().stream())
+                .anyMatch(location -> jobLocationRepository.countApplicationsForLocation(location.getId()) > 0);
+
+        if (hasApplications) {
+            return new Response<>(HttpStatus.BAD_REQUEST.value(),
+                    "Cannot delete job schedule as it has associated applications", null);
+        }
 
         // Delete associated schedule dates and job locations
         jobScheduleDateRepository.deleteAll(existingSchedule.getScheduleDates());

@@ -15,6 +15,7 @@ import com.event.recruitment.intelligent_recruitment_system.repository.candidate
 import com.event.recruitment.intelligent_recruitment_system.security.util.SecurityUtil;
 import com.event.recruitment.intelligent_recruitment_system.util.CandidateMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class CandidateProfileService {
 
     private final CandidateRepository candidateRepository;
@@ -52,40 +54,53 @@ public class CandidateProfileService {
     @PreAuthorize("hasRole('RECRUITER')")
     public Response<CandidateProfileDTO> getCandidateProfile(Long candidateId) {
         try {
+            log.debug("Fetching candidate profile for ID: {}", candidateId);
+
             Optional<Candidates> candidateOpt = candidateRepository.findById(candidateId);
             if (candidateOpt.isEmpty() || Boolean.TRUE.equals(candidateOpt.get().getIsDeleted())) {
+                log.warn("Candidate not found or is deleted: {}", candidateId);
                 return new Response<>(HttpStatus.NOT_FOUND.value(), "Candidate not found", null);
             }
 
             Candidates candidate = candidateOpt.get();
+            log.debug("Found candidate: {}", candidate.getName());
+
             CandidateProfileDTO profileDTO = candidateMapper.toCandidateProfileDTO(candidate);
 
             // Fetch and map experiences
+            log.debug("Fetching experiences for candidate ID: {}", candidate.getId());
             List<CandidateExperience> experiences = experienceRepository.findByCandidateId(candidate.getId());
             List<CandidateExperienceDTO> experienceDTOs = experiences.stream()
                     .map(candidateMapper::toExperienceDTO)
                     .collect(Collectors.toList());
             profileDTO.setExperiences(experienceDTOs);
+            log.debug("Found {} experiences for candidate", experiences.size());
 
             // Fetch and map working photos
+            log.debug("Fetching working photos for candidate ID: {}", candidate.getId());
             profileDTO.setWorkingPhotos(workingPhotoRepository.findByCandidateId(candidate.getId()).stream()
                     .map(candidateMapper::toWorkingPhotoDTO)
                     .collect(Collectors.toList()));
 
-            // Fetch and map comcards
-            profileDTO.setComcards(comcardRepository.findByCandidateId(candidate.getId()).stream()
+            // Fetch and map comcards - THIS IS WHERE THE ERROR OCCURS
+            // Change from findByCandidateId to findAllByCandidateId
+            log.debug("Fetching comcards for candidate ID: {}", candidate.getId());
+            profileDTO.setComcards(comcardRepository.findAllByCandidateId(candidate.getId()).stream()
                     .map(candidateMapper::toComcardDTO)
                     .collect(Collectors.toList()));
 
             // Fetch and map availability dates
+            log.debug("Fetching availability dates for candidate ID: {}", candidate.getId());
             List<CandidateAvailabilityDate> availabilityDates = availabilityDateRepository.findByCandidateId(candidate.getId());
             DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             profileDTO.setAvailabilityDates(availabilityDates.stream()
                     .map(date -> date.getAvailableDate().format(formatter))
                     .collect(Collectors.toList()));
 
+            log.info("Successfully retrieved candidate profile for ID: {}", candidateId);
             return new Response<>(HttpStatus.OK.value(), "Candidate profile retrieved successfully", profileDTO);
         } catch (Exception e) {
+            log.error("Failed to retrieve candidate profile for ID: " + candidateId, e);
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Failed to retrieve candidate profile: " + e.getMessage(), null);
         }
@@ -101,8 +116,14 @@ public class CandidateProfileService {
     @PreAuthorize("hasRole('RECRUITER')")
     public Response<Page<CandidateSummaryDTO>> getAllCandidates(Pageable pageable) {
         try {
+            log.debug("Fetching all candidates with pagination: {}", pageable);
+
             // Get paginated list of non-deleted candidates
             Page<Candidates> candidatesPage = candidateRepository.findByIsDeletedFalse(pageable);
+            log.debug("Found {} candidates in page {} of size {}",
+                    candidatesPage.getNumberOfElements(),
+                    pageable.getPageNumber(),
+                    pageable.getPageSize());
 
             // Map to DTOs
             Page<CandidateSummaryDTO> candidateSummaries = candidatesPage.map(candidate -> {
@@ -124,9 +145,11 @@ public class CandidateProfileService {
                 return summaryDTO;
             });
 
+            log.info("Successfully retrieved paginated list of candidates");
             return new Response<>(HttpStatus.OK.value(),
                     "Candidates retrieved successfully", candidateSummaries);
         } catch (Exception e) {
+            log.error("Failed to retrieve candidates", e);
             return new Response<>(HttpStatus.INTERNAL_SERVER_ERROR.value(),
                     "Failed to retrieve candidates: " + e.getMessage(), null);
         }
