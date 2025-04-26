@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/auth/AdminJwtResponse.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.auth;
 
 import lombok.AllArgsConstructor;

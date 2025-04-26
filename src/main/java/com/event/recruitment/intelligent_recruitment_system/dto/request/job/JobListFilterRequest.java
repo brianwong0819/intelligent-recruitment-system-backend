@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/job/JobListFilterRequest.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.request.job;
 
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobTitleType;

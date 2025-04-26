@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/job/JobScheduleResponseDTO.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.job;
 
 import lombok.AllArgsConstructor;
@@ -27,7 +25,6 @@ public class JobScheduleResponseDTO {
     private Integer numPositions;
     private List<JobScheduleDateResponseDTO> scheduleDates;
 
-    // Inner classes remain the same
     @Data
     @Builder
     @NoArgsConstructor

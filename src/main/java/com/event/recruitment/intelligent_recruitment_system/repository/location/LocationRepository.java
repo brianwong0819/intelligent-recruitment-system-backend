@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/repository/location/LocationRepository.java
 package com.event.recruitment.intelligent_recruitment_system.repository.location;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.location.Location;

@@ -46,7 +46,6 @@ public class ProfileController {
         }
     }
 
-    // Add to ProfileController.java
     @PutMapping("/update-email")
     public ResponseEntity<Response<?>> updateCandidateEmail(@RequestParam String newEmail) {
         try {

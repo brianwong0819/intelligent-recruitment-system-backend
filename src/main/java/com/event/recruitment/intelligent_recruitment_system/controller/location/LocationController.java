@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/controller/location/LocationController.java
 package com.event.recruitment.intelligent_recruitment_system.controller.location;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;

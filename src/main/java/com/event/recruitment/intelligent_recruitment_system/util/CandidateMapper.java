@@ -18,8 +18,6 @@ import java.util.stream.Collectors;
 @Component
 public class CandidateMapper {
 
-    // src/main/java/com/event/recruitment/intelligent_recruitment_system/util/CandidateMapper.java
-
     public static CandidateResponseDTO toCandidateResponseDTO(Candidates candidate) {
         // Create LocationResponseDTO from Location entity if it exists
         LocationResponseDTO locationDTO = null;
@@ -49,7 +47,7 @@ public class CandidateMapper {
                 .dateOfBirth(candidate.getDateOfBirth() != null ? candidate.getDateOfBirth().toString() : null)
                 .race(candidate.getRace() != null ? candidate.getRace().toString() : null)
                 .profilePictureUrl(candidate.getProfilePictureUrl())
-                .preferredLocation(locationDTO)  // Use location DTO instead of string
+                .preferredLocation(locationDTO)
                 .availability(candidate.getAvailability()!= null ? candidate.getAvailability().toString() : null)
                 .bio(candidate.getBio())
                 .resumeUrl(candidate.getResumeUrl())

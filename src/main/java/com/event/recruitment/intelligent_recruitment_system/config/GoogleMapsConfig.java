@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/config/GoogleMapsConfig.java
 package com.event.recruitment.intelligent_recruitment_system.config;
 
 import org.springframework.beans.factory.annotation.Value;

@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/util/JobMapper.java
-
 package com.event.recruitment.intelligent_recruitment_system.util;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.response.job.JobSummaryResponseDTO;

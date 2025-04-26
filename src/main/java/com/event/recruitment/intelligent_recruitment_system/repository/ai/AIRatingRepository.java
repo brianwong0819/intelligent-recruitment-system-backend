@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/repository/ai/AIRatingRepository.java
 package com.event.recruitment.intelligent_recruitment_system.repository.ai;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.ai.AIRating;

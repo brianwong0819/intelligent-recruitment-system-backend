@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/config/SecurityConfig.java
-
 package com.event.recruitment.intelligent_recruitment_system.config;
 
 import com.event.recruitment.intelligent_recruitment_system.security.jwt.JwtAuthenticationFilter;
@@ -60,7 +58,6 @@ public class SecurityConfig {
                         ).permitAll()
                         // Admin endpoints are secured by @PreAuthorize in the controller
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // OPTIONS requests for CORS preflight
                         .requestMatchers(request -> "OPTIONS".equalsIgnoreCase(request.getMethod())).permitAll()
                         // All other requests need authentication
                         .anyRequest().authenticated()

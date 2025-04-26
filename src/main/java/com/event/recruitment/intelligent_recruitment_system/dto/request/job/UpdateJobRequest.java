@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/job/UpdateJobRequest.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.request.job;
 
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobTitleType;
@@ -19,7 +17,6 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 public class UpdateJobRequest {
-    // No project ID field - we don't allow moving jobs between projects
 
     @NotBlank(message = "Job title is required")
     @Size(max = 50, message = "Job title must not exceed 50 characters")
@@ -42,5 +39,4 @@ public class UpdateJobRequest {
 
     private String benefits;
 
-    // Status updates should be handled through the dedicated status change endpoint
 }

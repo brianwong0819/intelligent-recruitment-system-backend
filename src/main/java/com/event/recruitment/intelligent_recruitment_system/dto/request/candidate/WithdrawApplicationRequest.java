@@ -1,4 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/candidate/WithdrawApplicationRequest.java
 package com.event.recruitment.intelligent_recruitment_system.dto.request.candidate;
 
 import jakarta.validation.constraints.Size;

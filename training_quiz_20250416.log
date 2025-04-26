@@ -1,3 +1,0 @@
-2025-04-16 23:46:47,656 - training_quiz - INFO - Gemini AI API configured successfully
-2025-04-16 23:46:47,656 - training_quiz - WARNING - Training PDF file not found at path: ./uploads\training\f177620b-088c-4656-bab2-67a567acfaa6.pdf
-2025-04-16 23:46:47,656 - training_quiz - INFO - Writing quiz results to stdout

@@ -28,7 +28,6 @@ public class ApplicantSummaryDTO {
     // Basic list of location names for backward compatibility
     private List<String> locationNames;
 
-    // Updated to support multiple dates per location
     private Map<String, List<LocalDateTime>> locationWorkDates;
 
     // AI ratings

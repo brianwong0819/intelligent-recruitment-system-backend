@@ -193,4 +193,12 @@ public interface JobApplicationRepository extends JpaRepository<JobApplication, 
      * @return List of job applications with the specified group ID and status
      */
     List<JobApplication> findByApplicationGroupIdAndApplicationStatus(String applicationGroupId, JobApplication.ApplicationStatus applicationStatus);
+
+    /**
+     * Find applications by candidate ID and application status
+     * @param candidateId The candidate ID
+     * @param applicationStatus The application status
+     * @return List of job applications with the specified candidate ID and status
+     */
+    List<JobApplication> findByCandidateIdAndApplicationStatus(Long candidateId, JobApplication.ApplicationStatus applicationStatus);
 }

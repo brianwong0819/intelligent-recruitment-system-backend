@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/model/entity/admin/Admin.java
-
 package com.event.recruitment.intelligent_recruitment_system.model.entity.admin;
 
 import jakarta.persistence.*;
@@ -43,6 +41,6 @@ public class Admin {
         this.password = password;
         this.email = email;
         this.isDeleted = isDeleted;
-        this.createdAt = LocalDateTime.now(); // Ensure createdAt is always set
+        this.createdAt = LocalDateTime.now();
     }
 }

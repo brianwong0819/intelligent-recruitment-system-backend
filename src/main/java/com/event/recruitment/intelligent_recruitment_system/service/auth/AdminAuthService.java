@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/service/auth/AdminAuthService.java
-
 package com.event.recruitment.intelligent_recruitment_system.service.auth;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;

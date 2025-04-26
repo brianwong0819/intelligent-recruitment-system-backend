@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/service/job/JobService.java
-
 package com.event.recruitment.intelligent_recruitment_system.service.job;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.PagedResponseDTO;
@@ -356,8 +354,8 @@ public class JobService {
                     .size(size)
                     .sortBy(sortBy)
                     .sortDirection(sortDirection)
-                    .latitude(preferredLocation.getLatitude().doubleValue()) // Convert BigDecimal to double
-                    .longitude(preferredLocation.getLongitude().doubleValue()) // Convert BigDecimal to double
+                    .latitude(preferredLocation.getLatitude().doubleValue())
+                    .longitude(preferredLocation.getLongitude().doubleValue())
                     .distance(distance)
                     .build();
 
@@ -550,12 +548,10 @@ public class JobService {
                 .benefits(job.getBenefits())
                 .status(job.getStatus())
                 .createdAt(job.getCreatedAt())
-                // Add company/recruiter information
                 .recruiterId(job.getProject().getRecruiter().getId())
                 .companyName(companyName)
                 .companyLogoUrl(job.getProject().getRecruiter().getCompanyLogoUrl())
                 .recruiterType(recruiterType)
-                // Add job schedules
                 .jobSchedules(scheduleResponseDTOs)
                 .build();
     }

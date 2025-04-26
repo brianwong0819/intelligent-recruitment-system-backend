@@ -71,6 +71,8 @@ public class JobApplicationService {
 
             // Get all selected job locations
             List<JobLocation> jobLocations = new ArrayList<>();
+            Set<LocalDate> newApplicationDates = new HashSet<>();
+
             for (Long locationId : request.getJobLocationIds()) {
                 Optional<JobLocation> jobLocationOpt = jobLocationRepository.findById(locationId);
                 if (jobLocationOpt.isEmpty()) {
@@ -79,6 +81,11 @@ public class JobApplicationService {
                 }
 
                 JobLocation jobLocation = jobLocationOpt.get();
+
+                // Add work date from this job location
+                if (jobLocation.getJobScheduleDate() != null) {
+                    newApplicationDates.add(jobLocation.getJobScheduleDate().getWorkDate());
+                }
 
                 // Check if the position is still open
                 if (jobLocation.getStatus() != JobLocationStatus.OPEN &&
@@ -103,6 +110,40 @@ public class JobApplicationService {
                 }
 
                 jobLocations.add(jobLocation);
+            }
+
+            // Check for conflicts with HIRED applications
+            if (!newApplicationDates.isEmpty()) {
+                // Find all HIRED applications for this candidate
+                List<JobApplication> hiredApplications = jobApplicationRepository
+                        .findByCandidateIdAndApplicationStatus(
+                                candidate.getId(),
+                                JobApplication.ApplicationStatus.HIRED);
+
+                // Get all work dates from hired applications
+                Set<LocalDate> hiredDates = new HashSet<>();
+                for (JobApplication app : hiredApplications) {
+                    if (app.getJobLocation() != null &&
+                            app.getJobLocation().getJobScheduleDate() != null) {
+                        hiredDates.add(app.getJobLocation().getJobScheduleDate().getWorkDate());
+                    }
+                }
+
+                // Check for overlap between new dates and hired dates
+                Set<LocalDate> conflictDates = new HashSet<>(newApplicationDates);
+                conflictDates.retainAll(hiredDates); // Keep only dates that exist in both sets
+
+                if (!conflictDates.isEmpty()) {
+                    // Format the conflict dates for the error message
+                    List<String> formattedConflictDates = conflictDates.stream()
+                            .sorted()
+                            .map(date -> date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
+                            .collect(Collectors.toList());
+
+                    return new Response<>(HttpStatus.CONFLICT.value(),
+                            "You already have hired applications for these dates: " +
+                                    String.join(", ", formattedConflictDates), null);
+                }
             }
 
             String applicationGroupId = JobApplication.generateGroupId();
@@ -688,7 +729,7 @@ public class JobApplicationService {
             // Get all location names
             List<String> locationNames = applications.stream()
                     .map(app -> app.getJobLocation().getLocation().getName())
-                    .distinct() // Add this line to remove duplicates
+                    .distinct()
                     .collect(Collectors.toList());
 
             // Get all work dates
@@ -702,7 +743,6 @@ public class JobApplicationService {
                     .map(date -> date.format(DateTimeFormatter.ofPattern("dd MMM yyyy")))
                     .collect(Collectors.toList());
 
-            // Prepare template variables
             Map<String, Object> variables = new HashMap<>();
             variables.put("candidateName", candidate.getName());
             variables.put("jobTitle", jobTitle);
@@ -715,7 +755,6 @@ public class JobApplicationService {
             variables.put("salary", firstApp.getJobLocation().getJob().getSalary());
             variables.put("salaryType", firstApp.getJobLocation().getJob().getSalaryType());
 
-            // Add distance information if available
             if (firstApp.getDistanceToCandidate() != null) {
                 String formattedDistance = String.format("%.1f", firstApp.getDistanceToCandidate());
                 variables.put("distanceToCandidate", formattedDistance);
@@ -738,7 +777,6 @@ public class JobApplicationService {
                 log.warn("Failed to send application confirmation email to: {}", candidate.getEmail());
             }
         } catch (Exception e) {
-            // Log error but don't interrupt the application process
             log.error("Error sending application confirmation email: {}", e.getMessage(), e);
         }
     }
@@ -775,8 +813,6 @@ public class JobApplicationService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateSingleApplicationDistance(Long applicationId, Candidates candidate) {
         try {
-            // We need to load the entire object graph within this transaction
-            // Using a join fetch query to load job location and location in one go
             JobApplication application = jobApplicationRepository.findApplicationWithLocationById(applicationId);
 
             if (application == null) {
@@ -840,13 +876,11 @@ public class JobApplicationService {
                 reputationResponse = candidateReputationService.applyHiredWithdrawalPenaltyForGroup(
                         candidateId, groupId, withdrawalReason);
             } else {
-                // For single applications, use the original method
                 reputationResponse = candidateReputationService.applyHiredWithdrawalPenalty(
                         candidateId, jobApplicationId, description);
             }
 
             if (reputationResponse.getStatusCode() != 200) {
-                // Log the error but continue with the withdrawal
                 log.warn("Failed to apply reputation penalty: {}", reputationResponse.getMessage());
             }
 
@@ -876,7 +910,6 @@ public class JobApplicationService {
         }
     }
 
-    // Other existing methods below like getApplicationDetails, getCandidateApplications, etc.
     public Response<List<JobApplicationResponseDTO>> getCandidateApplications() {
         try {
             String username = securityUtil.getCurrentUsername();
@@ -1050,7 +1083,7 @@ public class JobApplicationService {
                 .orElse(0.0);
 
         return JobApplicationResponseDTO.builder()
-                .id(firstApp.getId()) // Using first application ID as reference
+                .id(firstApp.getId())
                 .jobId(firstApp.getJobLocation().getJob().getId())
                 .applicationGroupId(firstApp.getApplicationGroupId())
                 .jobTitle(firstApp.getJobLocation().getJob().getTitle())
@@ -1061,8 +1094,8 @@ public class JobApplicationService {
                 .notes(firstApp.getNotes())
                 .workDates(workDates)
                 .applicationIds(applicationIds)
-                .jobSummary(jobSummary) // Add job summary
-                .distanceToCandidate(avgDistance > 0 ? avgDistance : null) // Add the average distance
+                .jobSummary(jobSummary)
+                .distanceToCandidate(avgDistance > 0 ? avgDistance : null)
                 .build();
     }
 
@@ -1080,8 +1113,8 @@ public class JobApplicationService {
                 .applicationDate(application.getApplicationDate())
                 .notes(application.getNotes())
                 .applicationIds(List.of(application.getId()))
-                .jobSummary(jobSummary) // Add job summary
-                .distanceToCandidate(application.getDistanceToCandidate()) // Add the distance
+                .jobSummary(jobSummary)
+                .distanceToCandidate(application.getDistanceToCandidate())
                 .build();
     }
 
@@ -1148,8 +1181,8 @@ public class JobApplicationService {
                 .endTime(endTime)
                 .totalPositions(totalPositions)
                 .availablePositions(availablePositions)
-                .saved(false) // Default value, can be updated later if needed
-                .viewed(true) // The job is viewed since it's applied
+                .saved(false)
+                .viewed(true)
                 .build();
     }
 }

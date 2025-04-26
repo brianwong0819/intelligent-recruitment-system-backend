@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/model/enums/ListingTimeFilter.java
-
 package com.event.recruitment.intelligent_recruitment_system.model.enums;
 
 public enum ListingTimeFilter {

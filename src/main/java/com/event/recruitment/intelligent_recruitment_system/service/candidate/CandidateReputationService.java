@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/service/candidate/CandidateReputationService.java
 package com.event.recruitment.intelligent_recruitment_system.service.candidate;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;

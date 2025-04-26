@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/training/TrainingStatusSummaryDTO.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.training;
 
 import lombok.AllArgsConstructor;

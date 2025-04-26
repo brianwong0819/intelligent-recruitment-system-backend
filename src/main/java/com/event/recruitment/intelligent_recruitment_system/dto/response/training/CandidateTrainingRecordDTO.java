@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/training/CandidateTrainingRecordDTO.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.training;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.training.CandidateTrainingRecord;
@@ -15,7 +13,7 @@ import java.time.LocalDateTime;
 public class CandidateTrainingRecordDTO {
     private Long id;
     private Long candidateId;
-    private String candidateName; // Will be populated separately
+    private String candidateName;
     private Long jobId;
     private Long trainingMaterialId;
     private LocalDateTime firstViewedAt;

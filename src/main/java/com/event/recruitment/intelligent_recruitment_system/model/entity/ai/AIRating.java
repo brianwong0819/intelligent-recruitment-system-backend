@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/model/entity/ai/AIRating.java
 package com.event.recruitment.intelligent_recruitment_system.model.entity.ai;
 
 import jakarta.persistence.*;

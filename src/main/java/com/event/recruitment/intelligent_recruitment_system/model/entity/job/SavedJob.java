@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/model/entity/job/SavedJob.java
-
 package com.event.recruitment.intelligent_recruitment_system.model.entity.job;
 
 import lombok.Data;

@@ -72,7 +72,6 @@ public class ProjectController {
         }
     }
 
-    // Add this method to ProjectController.java
     @PutMapping
     public ResponseEntity<Response<ProjectResponseDTO>> updateProject(@Valid @RequestBody UpdateProjectRequest request) {
         try {

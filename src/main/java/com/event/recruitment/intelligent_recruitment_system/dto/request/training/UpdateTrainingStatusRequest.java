@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/training/UpdateTrainingStatusRequest.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.request.training;
 
 import lombok.AllArgsConstructor;

@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/repository/admin/AdminRepository.java
-
 package com.event.recruitment.intelligent_recruitment_system.repository.admin;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.admin.Admin;

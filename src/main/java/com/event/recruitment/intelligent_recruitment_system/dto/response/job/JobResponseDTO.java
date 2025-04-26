@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/job/JobResponseDTO.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.job;
 
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobStatusType;

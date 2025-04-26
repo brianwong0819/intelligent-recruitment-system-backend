@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/common/ChangePasswordRequest.java
 package com.event.recruitment.intelligent_recruitment_system.dto.request.common;
 
 import lombok.AllArgsConstructor;

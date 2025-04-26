@@ -75,10 +75,10 @@ public class CandidateService {
                 .race(request.getRace())
                 .employmentStatus(request.getEmploymentStatus())
                 .profilePictureUrl(request.getProfilePictureUrl())
-                .bio(request.getBio())  // Set bio field
-                .languages(request.getLanguages())  // Set languages field
+                .bio(request.getBio())
+                .languages(request.getLanguages())
                 .isDeleted(false)
-                .isSearchable(false) // By default, candidates are not searchable
+                .isSearchable(false)
                 .createdAt(LocalDateTime.now())
                 .build();
 
@@ -86,7 +86,7 @@ public class CandidateService {
 
         CandidateReputation reputation = CandidateReputation.builder()
                 .candidateId(savedCandidate.getId())
-                .score(100.0) // 初始分数为100
+                .score(100.0) 
                 .createdAt(LocalDateTime.now())
                 .updatedAt(LocalDateTime.now())
                 .build();

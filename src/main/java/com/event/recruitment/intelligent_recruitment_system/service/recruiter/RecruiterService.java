@@ -90,9 +90,10 @@ public class RecruiterService {
 
         return new Response<>(201, "Recruiter registered successfully", responseDTO);
     }
-        /**
-         * Upload or update company logo for the logged-in recruiter
-         */
+
+    /**
+     * Upload or update company logo for the logged-in recruiter
+     */
     @Transactional
     public Response<?> uploadOrUpdateCompanyLogo(MultipartFile file) {
         try {

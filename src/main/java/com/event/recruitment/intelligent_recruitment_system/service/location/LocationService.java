@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/service/location/LocationService.java
 package com.event.recruitment.intelligent_recruitment_system.service.location;
 
 import com.event.recruitment.intelligent_recruitment_system.config.GoogleMapsConfig;
@@ -446,7 +445,6 @@ public class LocationService {
     // Helper method to find locations within a radius
     private List<Location> findLocationsByCoordinatesAndRadius(BigDecimal latitude, BigDecimal longitude, Double radiusKm) {
         // Calculate the approximate bounding box for the given radius
-        // This is a simple approximation that doesn't account for the Earth's curvature at high latitudes
         double latDegreePerKm = 1.0 / 110.574; // 1 degree of latitude is approximately 110.574 km
         double lngDegreePerKm = 1.0 / (111.320 * Math.cos(Math.toRadians(latitude.doubleValue()))); // Longitude degree distance varies with latitude
 

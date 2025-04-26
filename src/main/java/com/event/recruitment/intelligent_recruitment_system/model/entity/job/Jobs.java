@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/model/entity/job/Jobs.java
-
 package com.event.recruitment.intelligent_recruitment_system.model.entity.job;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.recruiter.Projects;

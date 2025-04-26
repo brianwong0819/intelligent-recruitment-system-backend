@@ -471,7 +471,7 @@ public class AIRatingService {
 
         return AIRatingRequestDTO.builder()
                 .jobApplicationId(applicationId)
-                .applicationGroupId(null) // This will be set by the calling method if needed
+                .applicationGroupId(null)
                 .experienceScore(experienceScore)
                 .skillsScore(7.0)     // Default score
                 .locationScore(locationScore)

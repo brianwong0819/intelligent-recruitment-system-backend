@@ -1,4 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/config/TrainingQuizConfig.java
 package com.event.recruitment.intelligent_recruitment_system.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;

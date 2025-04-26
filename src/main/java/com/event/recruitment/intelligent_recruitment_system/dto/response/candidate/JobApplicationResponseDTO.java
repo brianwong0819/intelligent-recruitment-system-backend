@@ -27,5 +27,5 @@ public class JobApplicationResponseDTO {
     private List<LocalDate> workDates;
     private List<Long> applicationIds;
     private JobSummaryResponseDTO jobSummary;
-    private Double distanceToCandidate; // New field to store distance to candidate's preferred location
+    private Double distanceToCandidate;
 }

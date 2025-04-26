@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/config/DataInitializer.java
-
 package com.event.recruitment.intelligent_recruitment_system.config;
 
 import com.event.recruitment.intelligent_recruitment_system.service.auth.AdminAuthService;

@@ -1,5 +1,3 @@
-
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/ai/CandidateAIEvaluationDataDTO.java
 package com.event.recruitment.intelligent_recruitment_system.dto.ai;
 
 import lombok.AllArgsConstructor;
@@ -54,7 +52,7 @@ public class CandidateAIEvaluationDataDTO {
     private List<String> locationNames;
     private LocalDateTime applicationDate;
     private Double distanceToCandidate;
-    private Integer totalJobWorkingDays; // New field for total days in the job
+    private Integer totalJobWorkingDays;
 
     // Work dates info
     private List<String> appliedWorkDates;

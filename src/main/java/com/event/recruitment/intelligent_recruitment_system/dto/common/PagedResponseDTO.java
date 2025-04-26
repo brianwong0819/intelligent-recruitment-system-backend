@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/common/PagedResponseDTO.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.common;
 
 import lombok.AllArgsConstructor;

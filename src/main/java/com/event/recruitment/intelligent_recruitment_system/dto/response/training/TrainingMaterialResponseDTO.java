@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/training/TrainingMaterialResponseDTO.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.training;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.training.TrainingMaterial;

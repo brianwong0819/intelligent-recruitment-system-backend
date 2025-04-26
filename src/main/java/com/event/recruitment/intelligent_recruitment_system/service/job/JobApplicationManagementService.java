@@ -162,7 +162,6 @@ public class JobApplicationManagementService {
                     List<JobApplication> apps = entry.getValue();
                     JobApplication primaryApp = apps.get(0);
 
-                    // FIX: Collect only the location-date pairs that the candidate actually applied for
                     Map<String, List<LocalDateTime>> appliedLocationDatesMap = new LinkedHashMap<>();
 
                     // Process only this candidate's actual applications
@@ -173,7 +172,6 @@ public class JobApplicationManagementService {
                         // Get work date from schedule date if available
                         LocalDateTime workDate = getWorkDateForJobLocation(jobLocation);
 
-                        // Add to the map, creating a new list if this location hasn't been seen yet
                         if (!appliedLocationDatesMap.containsKey(locationName)) {
                             appliedLocationDatesMap.put(locationName, new ArrayList<>());
                         }

@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/controller/auth/AdminAuthController.java
-
 package com.event.recruitment.intelligent_recruitment_system.controller.auth;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;

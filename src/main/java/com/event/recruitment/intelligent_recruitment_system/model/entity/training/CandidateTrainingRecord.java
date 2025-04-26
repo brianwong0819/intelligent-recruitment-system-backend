@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/model/entity/training/CandidateTrainingRecord.java
-
 package com.event.recruitment.intelligent_recruitment_system.model.entity.training;
 
 import jakarta.persistence.*;

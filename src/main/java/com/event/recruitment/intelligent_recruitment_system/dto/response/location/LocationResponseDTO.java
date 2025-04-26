@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/location/LocationResponseDTO.java
 package com.event.recruitment.intelligent_recruitment_system.dto.response.location;
 
 import lombok.AllArgsConstructor;
@@ -25,6 +24,5 @@ public class LocationResponseDTO {
     private String placeId;
     private String googleMapsUrl;
 
-    // Additional fields for frontend convenience
-    private Double distanceFromUser; // In kilometers, calculated if user provides coordinates
+    private Double distanceFromUser;
 }

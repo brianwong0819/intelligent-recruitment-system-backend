@@ -1,0 +1,14 @@
+2025-04-26 18:26:10,628 - training_quiz - INFO - Gemini AI API configured successfully
+2025-04-26 18:26:10,629 - training_quiz - INFO - Found training PDF file at: ./uploads\training-materials\f177620b-088c-4656-bab2-67a567acfaa6.pdf
+2025-04-26 18:26:10,629 - training_quiz - INFO - Uploading PDF from path: ./uploads\training-materials\f177620b-088c-4656-bab2-67a567acfaa6.pdf
+2025-04-26 18:26:15,308 - training_quiz - INFO - Successfully uploaded PDF: files/904j6zcq6yqn
+2025-04-26 18:26:15,308 - training_quiz - INFO - Prepared quiz generation prompt
+2025-04-26 18:26:15,308 - training_quiz - INFO - Sending request to Gemini AI...
+2025-04-26 18:26:15,309 - training_quiz - INFO - Trying model: models/gemini-2.0-flash
+2025-04-26 18:26:15,309 - training_quiz - INFO - Sending request with PDF to model: models/gemini-2.0-flash
+2025-04-26 18:26:29,854 - training_quiz - INFO - Successfully used model: models/gemini-2.0-flash
+2025-04-26 18:26:29,854 - training_quiz - INFO - Received response from Gemini AI
+2025-04-26 18:26:29,854 - training_quiz - WARNING - Failed to parse response as JSON: Expecting value: line 1 column 1 (char 0)
+2025-04-26 18:26:29,855 - training_quiz - WARNING - Attempting to extract JSON from text...
+2025-04-26 18:26:29,855 - training_quiz - INFO - Successfully extracted and parsed JSON from text
+2025-04-26 18:26:29,855 - training_quiz - INFO - Writing quiz results to C:\Users\Acer\AppData\Local\Temp\quiz_result_4563851447279991446.json

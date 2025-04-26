@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/recruiter/ViewStatisticsResponse.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.recruiter;
 
 import lombok.AllArgsConstructor;

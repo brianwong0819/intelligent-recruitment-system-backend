@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/repository/candidate/ReputationEventRepository.java
 package com.event.recruitment.intelligent_recruitment_system.repository.candidate;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.candidate.ReputationEvent;

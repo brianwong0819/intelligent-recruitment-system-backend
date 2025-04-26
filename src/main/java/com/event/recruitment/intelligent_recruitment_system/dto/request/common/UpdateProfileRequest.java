@@ -11,12 +11,10 @@ import java.util.List;
 @Setter
 public class UpdateProfileRequest {
 
-    // ✅ 适用于 Candidate & Recruiter
     private String name;               // Candidate: name, Recruiter: recruiter_rep_name
     private String email;              // Email for contact
     private String phoneNumber;        // Contact number
 
-    // ✅ 仅适用于 Candidate
     private Gender gender;             // ENUM: Male, Female, Other
     private LocalDate dateOfBirth;     // Date of birth (LocalDate)
     private Race race;                 // ENUM: Malay, Chinese, Indian, Indigenous, Other Bumiputera, Other
@@ -28,13 +26,11 @@ public class UpdateProfileRequest {
     private String resumeUrl;          // Resume link
     private EmploymentStatus employmentStatus;
 
-    // ✅ 仅适用于 Recruiter
     private RecruiterType recruiterType;  // ENUM: Individual, Freelance, Agency, Company
     private String recruiterRepName;
     private String companyName;           // Company name
     private String companyLogoUrl;        // Company logo URL
     private String companyDescription;    // Company description
-    // Replace string location with location ID
     private Long companyLocationId;
     private String companyWebsite;        // Company website
 }

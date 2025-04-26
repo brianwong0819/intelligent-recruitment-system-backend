@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/auth/RecruiterRegistrationRequest.java
 package com.event.recruitment.intelligent_recruitment_system.dto.request.auth;
 
 import com.event.recruitment.intelligent_recruitment_system.model.enums.RecruiterType;
@@ -38,7 +37,6 @@ public class RecruiterRegistrationRequest {
     private String companyName;
     private String companyDescription;
 
-    // Replace string-based location with location ID
     private Long companyLocationId;
 
     private String companyWebsite;

@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/controller/job/JobController.java
-
 package com.event.recruitment.intelligent_recruitment_system.controller.job;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
@@ -89,7 +87,6 @@ public class JobController {
             @PathVariable Long jobId,
             @Valid @RequestBody ChangeJobStatusRequest request) {
         try {
-            // Ensure the jobId in the path matches the jobId in the request body
             request.setJobId(jobId);
 
             Response<JobResponseDTO> response = jobService.changeJobStatus(request);

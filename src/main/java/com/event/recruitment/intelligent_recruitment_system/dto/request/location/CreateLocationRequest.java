@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/location/CreateLocationRequest.java
 package com.event.recruitment.intelligent_recruitment_system.dto.request.location;
 
 import jakarta.validation.constraints.DecimalMax;

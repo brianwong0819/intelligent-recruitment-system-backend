@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/controller/ai/AIEvaluationController.java
 package com.event.recruitment.intelligent_recruitment_system.controller.ai;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.ai.AIRatingRequestDTO;

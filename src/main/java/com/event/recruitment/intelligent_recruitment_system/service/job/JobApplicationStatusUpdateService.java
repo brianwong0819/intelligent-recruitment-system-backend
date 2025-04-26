@@ -32,7 +32,7 @@ public class JobApplicationStatusUpdateService {
     private final JobLocationRepository jobLocationRepository;
     private final JobRepository jobRepository;
     private final SecurityUtil securityUtil;
-    private final EmailService emailService; // Injected EmailService
+    private final EmailService emailService;
 
     /**
      * Update the status of a job application with comprehensive checks and updates.
@@ -158,7 +158,7 @@ public class JobApplicationStatusUpdateService {
         } catch (IllegalStateException ise) {
             // Catch specific exceptions like "Cannot hire - location positions are already filled"
             log.warn("State exception during application status update for ID {}: {}", applicationId, ise.getMessage());
-            return new Response<>(HttpStatus.CONFLICT.value(), // 409 Conflict is suitable
+            return new Response<>(HttpStatus.CONFLICT.value(),
                     ise.getMessage(), null);
         } catch (Exception e) {
             log.error("Error updating application status for ID {}: {}", applicationId, e.getMessage(), e);
@@ -206,7 +206,6 @@ public class JobApplicationStatusUpdateService {
                         "Invalid application status value: " + status, null);
             }
 
-            // --- ADDED: Flag to track if any update actually happened ---
             boolean updateOccurred = false;
 
             // Process each application within the transaction
@@ -274,7 +273,6 @@ public class JobApplicationStatusUpdateService {
                 jobApplicationRepository.save(application);
             } // End loop through applications
 
-            // --- ADDED: Check if any updates were made ---
             if (!updateOccurred) {
                 log.info("No applications required status update in group ID {} to status {}", groupId, newStatus);
                 return new Response<>(HttpStatus.BAD_REQUEST.value(),
@@ -392,7 +390,6 @@ public class JobApplicationStatusUpdateService {
                 log.warn("Failed to send group application status update email to: {} for group ID {}", candidateEmail, groupId);
             }
         } catch (Exception e) {
-            // Log error but don't interrupt the status update process
             log.error("Error sending group application status update email: {}", e.getMessage(), e);
         }
     }
@@ -495,8 +492,6 @@ public class JobApplicationStatusUpdateService {
         // Set/update hired date
         application.setHiredDate(LocalDateTime.now());
 
-        // --- Update job location status based on counts ---
-        // Don't override CANCELLED status automatically by hiring counts
         if (jobLocation.getStatus() != JobLocationStatus.CANCELLED) {
             int filled = jobLocation.getPositionsFilled();
             int needed = jobLocation.getPositionsNeeded();
@@ -519,7 +514,6 @@ public class JobApplicationStatusUpdateService {
                         jobLocation.getId(), oldLocationStatus, newLocationStatus, filled, needed);
             }
         }
-        // --- End status update ---
 
         // Save updated job location state
         jobLocationRepository.save(jobLocation);
@@ -543,8 +537,6 @@ public class JobApplicationStatusUpdateService {
             // Clear hired date
             application.setHiredDate(null);
 
-            // --- Update job location status based on counts ---
-            // Don't override CANCELLED status automatically by un-hiring counts
             if (jobLocation.getStatus() != JobLocationStatus.CANCELLED) {
                 int filled = jobLocation.getPositionsFilled();
                 int needed = jobLocation.getPositionsNeeded();
@@ -567,7 +559,6 @@ public class JobApplicationStatusUpdateService {
                             jobLocation.getId(), oldLocationStatus, newLocationStatus, filled, needed);
                 }
             }
-            // --- End status update ---
 
             // Save updated job location state
             jobLocationRepository.save(jobLocation);

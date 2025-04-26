@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/util/RecruiterMapper.java
 package com.event.recruitment.intelligent_recruitment_system.util;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.response.location.LocationResponseDTO;
@@ -37,7 +36,7 @@ public class RecruiterMapper {
                 .companyName(recruiter.getCompanyName())
                 .companyLogoUrl(recruiter.getCompanyLogoUrl())
                 .companyDescription(recruiter.getCompanyDescription())
-                .companyLocation(locationDTO)  // Use the location DTO
+                .companyLocation(locationDTO)
                 .companyWebsite(recruiter.getCompanyWebsite())
                 .verificationStatus(recruiter.getVerificationStatus())
                 .build();
@@ -65,8 +64,8 @@ public class RecruiterMapper {
         return PublicRecruiterDTO.builder()
                 .id(recruiter.getId())
                 .recruiterRepName(recruiter.getRecruiterRepName())
-                .email(recruiter.getEmail())           // Added email field
-                .phoneNumber(recruiter.getPhoneNumber()) // Added phone number field
+                .email(recruiter.getEmail())
+                .phoneNumber(recruiter.getPhoneNumber())
                 .recruiterType(recruiter.getRecruiterType())
                 .companyName(recruiter.getCompanyName())
                 .companyLogoUrl(recruiter.getCompanyLogoUrl())

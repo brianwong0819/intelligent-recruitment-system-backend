@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/model/entity/training/TrainingMaterial.java
-
 package com.event.recruitment.intelligent_recruitment_system.model.entity.training;
 
 import jakarta.persistence.*;
@@ -37,7 +35,6 @@ public class TrainingMaterial {
     @Column(name = "description")
     private String description;
 
-    // Added is_enabled field to control training visibility to candidates
     @Column(name = "is_enabled", nullable = false)
     private Boolean isEnabled = false;
 

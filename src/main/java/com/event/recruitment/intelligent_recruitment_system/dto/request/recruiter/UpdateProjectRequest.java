@@ -1,4 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/recruiter/UpdateProjectRequest.java
 package com.event.recruitment.intelligent_recruitment_system.dto.request.recruiter;
 
 import lombok.AllArgsConstructor;

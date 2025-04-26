@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/service/training/TrainingMaterialService.java
-
 package com.event.recruitment.intelligent_recruitment_system.service.training;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;
@@ -139,16 +137,13 @@ public class TrainingMaterialService {
     @Transactional
     public Response<?> updateTrainingStatus(Long jobId, Long materialId, UpdateTrainingStatusRequest request) {
         try {
-            // 获取当前登录的用户
             String username = securityUtil.getCurrentUsername();
 
-            // 根据用户名查找招聘者
             Optional<Recruiters> recruiterOpt = recruiterRepository.findByUsername(username);
             if (recruiterOpt.isEmpty()) {
                 return new Response<>(404, "Recruiter not found", null);
             }
 
-            // 查找培训材料
             Optional<TrainingMaterial> materialOpt = trainingMaterialRepository.findByIdAndJobIdAndIsActiveTrue(materialId, jobId);
             if (materialOpt.isEmpty()) {
                 return new Response<>(404, "Training material not found", null);
@@ -156,11 +151,9 @@ public class TrainingMaterialService {
 
             TrainingMaterial material = materialOpt.get();
 
-            // 更新启用状态
             material.setIsEnabled(request.getIsEnabled());
             material.setUpdatedAt(LocalDateTime.now());
 
-            // 保存更新
             TrainingMaterial updatedMaterial = trainingMaterialRepository.save(material);
             TrainingMaterialResponseDTO responseDTO = new TrainingMaterialResponseDTO(updatedMaterial);
 
@@ -171,7 +164,6 @@ public class TrainingMaterialService {
             return new Response<>(200, message, responseDTO);
 
         } catch (Exception e) {
-            // 记录异常详情
             e.printStackTrace();
             return new Response<>(500, "An error occurred: " + e.getMessage(), null);
         }

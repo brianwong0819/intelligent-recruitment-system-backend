@@ -1,5 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/request/auth/AdminLoginRequest.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.request.auth;
 
 import jakarta.validation.constraints.NotBlank;

@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/job/JobSummaryResponseDTO.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.job;
 
 import com.event.recruitment.intelligent_recruitment_system.model.enums.JobTitleType;
@@ -42,7 +40,7 @@ public class JobSummaryResponseDTO {
     private LocalTime endTime;
     private Integer totalPositions;
     private Integer availablePositions;
-    private Double distance; // In kilometers, if distance-based search was used
+    private Double distance;
     private Integer totalWorkDays;
 
 

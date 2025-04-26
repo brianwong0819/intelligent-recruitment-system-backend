@@ -138,10 +138,6 @@ public class CandidateProfileService {
                         .collect(Collectors.toList());
                 summaryDTO.setExperienceTags(experienceTags);
 
-                // You could also fetch reputation score here if you have it implemented
-                // Optional<CandidateReputation> reputation = reputationRepository.findByCandidateId(candidate.getId());
-                // summaryDTO.setReputationScore(reputation.map(CandidateReputation::getScore).orElse(null));
-
                 return summaryDTO;
             });
 

@@ -37,7 +37,7 @@ public class CandidateRegistrationRequest {
     private Gender gender;  // Enum type for gender (e.g., "Male", "Female", "Other")
 
     @DateTimeFormat(pattern = "yyyy-MM-dd")
-    private LocalDate dateOfBirth;  // Should ideally be in YYYY-MM-DD format
+    private LocalDate dateOfBirth;
 
     @NotNull(message = "Employment status is required")
     private EmploymentStatus employmentStatus;

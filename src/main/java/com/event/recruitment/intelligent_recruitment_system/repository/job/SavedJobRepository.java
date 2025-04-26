@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/repository/job/SavedJobRepository.java
-
 package com.event.recruitment.intelligent_recruitment_system.repository.job;
 
 import com.event.recruitment.intelligent_recruitment_system.model.entity.job.SavedJob;

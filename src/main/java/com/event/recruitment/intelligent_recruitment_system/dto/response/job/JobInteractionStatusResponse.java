@@ -1,5 +1,3 @@
-// src/main/java/com/event/recruitment/intelligent_recruitment_system/dto/response/job/JobInteractionStatusResponse.java
-
 package com.event.recruitment.intelligent_recruitment_system.dto.response.job;
 
 import lombok.AllArgsConstructor;

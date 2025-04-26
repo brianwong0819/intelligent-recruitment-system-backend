@@ -1,4 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/controller/training/TrainingQuizController.java
 package com.event.recruitment.intelligent_recruitment_system.controller.training;
 
 import com.event.recruitment.intelligent_recruitment_system.dto.common.Response;

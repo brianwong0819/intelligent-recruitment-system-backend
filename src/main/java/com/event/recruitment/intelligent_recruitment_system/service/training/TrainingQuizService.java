@@ -1,4 +1,3 @@
-// Path: src/main/java/com/event/recruitment/intelligent_recruitment_system/service/training/TrainingQuizService.java
 package com.event.recruitment.intelligent_recruitment_system.service.training;
 
 import com.event.recruitment.intelligent_recruitment_system.config.TrainingQuizConfig;

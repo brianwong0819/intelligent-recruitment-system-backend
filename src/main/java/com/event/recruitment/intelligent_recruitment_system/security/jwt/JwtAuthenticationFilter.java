@@ -35,14 +35,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtUtil.extractUsername(token);
                 String role = jwtUtil.extractRole(token);
 
-                // Remove ROLE_ prefix if it exists - Spring Security will add it back
                 if (role != null && role.startsWith("ROLE_")) {
                     role = role.substring(5);
                 }
 
                 UserDetails userDetails = User.withUsername(username)
                         .password("")
-                        .roles(role) // Spring Security automatically adds "ROLE_" prefix
+                        .roles(role)
                         .build();
 
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
